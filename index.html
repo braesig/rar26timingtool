@@ -364,7 +364,7 @@
 
         .mobile-tab-selector { display: none; }
 
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
             header { flex-direction: column; gap: 10px; text-align: center; padding: 1rem; }
             .toolbar { flex-direction: column; }
             .toolbar > div { flex-direction: column; width: 100%; gap: 10px !important; }
@@ -608,7 +608,7 @@
             
             if (checkbox.checked) {
                 const pw = prompt("Bitte Admin-Passwort eingeben:");
-                if (pw !== "rar26") {
+                if (!pw || pw.trim().toLowerCase() !== "rar26") {
                     alert("Falsches Passwort!");
                     checkbox.checked = false;
                     return;
