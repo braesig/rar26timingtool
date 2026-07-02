@@ -371,16 +371,24 @@
             .card { padding: 15px 10px; border-radius: 0; border-left: none; border-right: none; }
             
             .table-container { margin: 0 -10px; width: calc(100% + 20px); border-radius: 0; }
-            table { font-size: 0.9rem; }
-            th, td { padding: 6px 4px; }
+            table { font-size: 0.85rem; }
+            th, td { padding: 4px 2px; }
             
             .form-group { flex-direction: column; align-items: stretch; gap: 10px; }
             .form-group input, .form-group button { width: 100% !important; margin-left: 0 !important; }
             
-            td input[type="text"] { width: 65px !important; padding: 8px 4px; font-size: 0.9rem; }
-            td select { width: 120px !important; min-width: 120px; padding: 8px 4px; font-size: 0.9rem; }
-            .action-btn { min-width: 38px; min-height: 38px; padding: 5px; font-size: 1.2rem; }
+            td input[type="text"] { width: 50px !important; padding: 6px 2px; font-size: 0.85rem; text-align: center; }
+            td select { width: 90px !important; min-width: 90px; padding: 6px 2px; font-size: 0.85rem; }
+            .action-btn { min-width: 32px; min-height: 32px; padding: 4px; font-size: 1rem; }
+            
+            .desktop-tabs { display: none !important; }
+            .mobile-tab-selector { display: block; margin: 15px 0; }
+            footer .logo-img { max-height: 30px !important; }
+            footer .logo-container { gap: 20px !important; }
+            header .header-info { justify-content: center !important; }
         }
+        
+        .mobile-tab-selector { display: none; }
     </style>
 </head>
 <body class="view-only">
@@ -391,14 +399,13 @@
             Rad am Ring '26 Timing Tool
         </div>
         <div class="header-info" style="display:flex; align-items:center; gap: 15px; flex: 1; justify-content: flex-end;">
-            <div id="cutoff-indicator">Cut-off Status: Lädt...</div>
             <div class="toggle-switch-container">
-                <span class="toggle-label" id="label-lese" style="opacity: 1;">👁️ Lese-Modus</span>
+                <span class="toggle-label" id="label-lese" style="opacity: 1;">Lese-Modus</span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="admin-toggle-checkbox" onchange="toggleAdminMode()">
                     <span class="slider"></span>
                 </label>
-                <span class="toggle-label" id="label-admin" style="opacity: 0.5;">✏️ Admin</span>
+                <span class="toggle-label" id="label-admin" style="opacity: 0.5;">Admin</span>
             </div>
         </div>
     </header>
@@ -416,7 +423,16 @@
             </div>
         </div>
 
-        <div class="tabs">
+        <div class="mobile-tab-selector">
+            <select id="mobile-tab-dropdown" onchange="switchTab(this.value)" style="width: 100%; padding: 12px; font-size: 1.1rem; border-radius: 8px; border: 1px solid var(--border-color); background: white; font-weight: bold; color: var(--text-main);">
+                <option value="team-avia1">AVIA I (Männer)</option>
+                <option value="team-avia2">AVIA II (Männer)</option>
+                <option value="team-frauen">AVIA Frauen</option>
+                <option value="master-data">⚙️ Fahrerverwaltung</option>
+            </select>
+        </div>
+
+        <div class="tabs desktop-tabs">
             <button class="tab-btn active" onclick="switchTab('team-avia1')">AVIA I (Männer)</button>
             <button class="tab-btn" onclick="switchTab('team-avia2')">AVIA II (Männer)</button>
             <button class="tab-btn" onclick="switchTab('team-frauen')">AVIA Frauen</button>
@@ -589,6 +605,16 @@
 
         function toggleAdminMode() {
             const checkbox = document.getElementById('admin-toggle-checkbox');
+            
+            if (checkbox.checked) {
+                const pw = prompt("Bitte Admin-Passwort eingeben:");
+                if (pw !== "rar26") {
+                    alert("Falsches Passwort!");
+                    checkbox.checked = false;
+                    return;
+                }
+            }
+            
             window.isAdminMode = checkbox.checked;
             
             if (window.isAdminMode) {
@@ -891,8 +917,14 @@
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            event.currentTarget.classList.add('active');
+            const targetEl = document.getElementById(tabId);
+            if(targetEl) targetEl.classList.add('active');
+            
+            const mobileDropdown = document.getElementById('mobile-tab-dropdown');
+            if (mobileDropdown) mobileDropdown.value = tabId;
+            
+            const btn = document.querySelector(`.tab-btn[onclick="switchTab('${tabId}')"]`);
+            if (btn) btn.classList.add('active');
         }
 
         function renderMasterData() {
@@ -1029,15 +1061,6 @@
                 tbody.innerHTML = html;
             });
 
-            // Update Cutoff Indicator
-            const indicator = document.getElementById('cutoff-indicator');
-            if (anyCutoffRisk) {
-                indicator.className = 'danger';
-                indicator.innerHTML = '⚠️ CUT-OFF GEFAHR!';
-            } else {
-                indicator.className = '';
-                indicator.innerHTML = '✅ Cut-off: OK';
-            }
         }
 
         function updateDriverSollsWithAverages() {
@@ -1063,9 +1086,12 @@
             renderAll();
         }
 
+        let currentWarnings = [];
+        let warningIndex = 0;
+
         function updateTicker() {
             const now = new Date().getTime();
-            const warnings = [];
+            currentWarnings = [];
             const warnMin = data.config ? parseInt(data.config.warningMinutes, 10) || 15 : 15;
             
             window.nextDrivers.forEach(nd => {
@@ -1074,15 +1100,22 @@
                 const teamName = nd.team.toUpperCase();
                 
                 if (diffMin >= 0 && diffMin <= warnMin) {
-                    warnings.push(`⚠️ ${teamName}: ${nd.driverName} startet in ${diffMin} Min!`);
+                    currentWarnings.push(`⚠️ ${teamName}: ${nd.driverName} startet in ${diffMin} Min!`);
                 } else if (diffMin < 0 && diffMin >= -15) { 
-                    warnings.push(`🚨 ${teamName}: ${nd.driverName} ist ${Math.abs(diffMin)} Min überfällig!`);
+                    currentWarnings.push(`🚨 ${teamName}: ${nd.driverName} ist ${Math.abs(diffMin)} Min überfällig!`);
                 }
             });
             
+            renderTickerDisplay();
+        }
+
+        function renderTickerDisplay() {
             const tickerEl = document.getElementById('driver-ticker');
-            if (warnings.length > 0) {
-                tickerEl.innerHTML = warnings.join(' &nbsp;&nbsp;|&nbsp;&nbsp; ');
+            if (currentWarnings.length > 0) {
+                if (warningIndex >= currentWarnings.length) {
+                    warningIndex = 0;
+                }
+                tickerEl.innerHTML = currentWarnings[warningIndex];
                 tickerEl.classList.remove('hidden');
             } else {
                 tickerEl.classList.add('hidden');
@@ -1090,6 +1123,12 @@
         }
 
         setInterval(updateTicker, 10000);
+        setInterval(() => {
+            if (currentWarnings.length > 1) {
+                warningIndex = (warningIndex + 1) % currentWarnings.length;
+                renderTickerDisplay();
+            }
+        }, 3000);
 
         function renderAll() {
             updateDriverSollsWithAverages();
