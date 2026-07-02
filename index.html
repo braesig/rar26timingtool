@@ -363,6 +363,7 @@
         }
 
         .mobile-tab-selector { display: none; }
+        .mobile-only-toggle { display: none; }
 
         @media (max-width: 1024px) {
             header { flex-direction: column; gap: 10px; text-align: center; padding: 1rem; }
@@ -373,7 +374,7 @@
             .card { padding: 15px 10px; border-radius: 0; border-left: none; border-right: none; }
             
             .table-container { margin: 0 -10px; width: calc(100% + 20px); border-radius: 0; }
-            table { font-size: 0.85rem; }
+            table { font-size: 0.85rem; min-width: 100%; }
             th, td { padding: 4px 2px; }
             
             .form-group { flex-direction: column; align-items: stretch; gap: 10px; }
@@ -384,7 +385,9 @@
             .action-btn { min-width: 32px; min-height: 32px; padding: 4px; font-size: 1rem; }
             
             .desktop-tabs { display: none !important; }
+            .desktop-only-toggle { display: none !important; }
             .mobile-tab-selector { display: block !important; margin: 15px 0; }
+            .mobile-only-toggle { display: flex !important; }
             footer .logo-img { max-height: 30px !important; }
             footer .logo-container { gap: 20px !important; }
             header .header-info { justify-content: center !important; }
@@ -398,14 +401,14 @@
         <div class="header-title" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); text-align: center; flex: 1; white-space: nowrap;">
             Rad am Ring '26 Timing Tool
         </div>
-        <div class="header-info" style="display:flex; align-items:center; gap: 15px; flex: 1; justify-content: flex-end;">
+        <div class="header-info desktop-only-toggle" style="display:flex; align-items:center; gap: 15px; flex: 1; justify-content: flex-end;">
             <div class="toggle-switch-container">
-                <span class="toggle-label" id="label-lese" style="opacity: 1;">Lese-Modus</span>
+                <span class="toggle-label label-lese" style="opacity: 1;">Lese-Modus</span>
                 <label class="toggle-switch">
-                    <input type="checkbox" id="admin-toggle-checkbox" onchange="toggleAdminMode()">
+                    <input type="checkbox" class="admin-toggle-checkbox" onchange="toggleAdminMode(this)">
                     <span class="slider"></span>
                 </label>
-                <span class="toggle-label" id="label-admin" style="opacity: 0.5;">Admin</span>
+                <span class="toggle-label label-admin" style="opacity: 0.5;">Admin</span>
             </div>
         </div>
     </header>
@@ -603,32 +606,32 @@
         window.isAdminMode = false;
         window.nextDrivers = [];
 
-        function toggleAdminMode() {
-            const checkbox = document.getElementById('admin-toggle-checkbox');
+        function toggleAdminMode(el) {
+            const isChecked = el ? el.checked : false;
             
-            if (checkbox.checked) {
+            if (isChecked && !window.isAdminMode) {
                 const pw = prompt("Bitte Admin-Passwort eingeben:");
                 if (!pw || pw.trim().toLowerCase() !== "rar26") {
                     alert("Falsches Passwort!");
-                    checkbox.checked = false;
+                    if(el) el.checked = false;
                     return;
                 }
             }
             
-            window.isAdminMode = checkbox.checked;
+            window.isAdminMode = isChecked;
+            
+            // Sync all checkboxes and labels
+            document.querySelectorAll('.admin-toggle-checkbox').forEach(cb => cb.checked = isChecked);
+            document.querySelectorAll('.label-lese').forEach(l => l.style.opacity = isChecked ? '0.5' : '1');
+            document.querySelectorAll('.label-admin').forEach(l => l.style.opacity = isChecked ? '1' : '0.5');
             
             if (window.isAdminMode) {
-                document.getElementById('label-lese').style.opacity = '0.5';
-                document.getElementById('label-admin').style.opacity = '1';
                 document.body.classList.remove('view-only');
                 // Push local state to firebase to initialize if empty
                 saveToFirebase();
             } else {
-                document.getElementById('label-lese').style.opacity = '1';
-                document.getElementById('label-admin').style.opacity = '0.5';
                 document.body.classList.add('view-only');
             }
-            renderAll();
         }
 
         function getRaceStart() {
@@ -1208,6 +1211,16 @@
 
     </script>
     <footer style="margin-top: 40px; background: white; border-top: 1px solid var(--border-color); padding: 30px 20px;">
+        <div class="header-info mobile-only-toggle" style="align-items:center; gap: 15px; justify-content: center; margin-bottom: 30px;">
+            <div class="toggle-switch-container">
+                <span class="toggle-label label-lese" style="opacity: 1;">Lese-Modus</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" class="admin-toggle-checkbox" onchange="toggleAdminMode(this)">
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-label label-admin" style="opacity: 0.5;">Admin</span>
+            </div>
+        </div>
         <div class="logo-container" style="display: flex; justify-content: center; align-items: center; gap: 50px; flex-wrap: wrap;">
             <img src="schulte-logo.jpg" alt="M. Schulte Söhne" class="logo-img" style="max-height: 50px; filter: grayscale(100%); opacity: 0.8; transition: 0.3s;" onmouseover="this.style.filter='none'; this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%)'; this.style.opacity='0.8'">
             <img src="cyclebean-logo.png" alt="CYCLEBEAN" class="logo-img" style="max-height: 50px; filter: grayscale(100%); opacity: 0.8; transition: 0.3s;" onmouseover="this.style.filter='none'; this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%)'; this.style.opacity='0.8'">
