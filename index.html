@@ -362,6 +362,8 @@
             align-items: center;
         }
 
+        .mobile-tab-selector { display: none; }
+
         @media (max-width: 768px) {
             header { flex-direction: column; gap: 10px; text-align: center; padding: 1rem; }
             .toolbar { flex-direction: column; }
@@ -382,13 +384,11 @@
             .action-btn { min-width: 32px; min-height: 32px; padding: 4px; font-size: 1rem; }
             
             .desktop-tabs { display: none !important; }
-            .mobile-tab-selector { display: block; margin: 15px 0; }
+            .mobile-tab-selector { display: block !important; margin: 15px 0; }
             footer .logo-img { max-height: 30px !important; }
             footer .logo-container { gap: 20px !important; }
             header .header-info { justify-content: center !important; }
         }
-        
-        .mobile-tab-selector { display: none; }
     </style>
 </head>
 <body class="view-only">
