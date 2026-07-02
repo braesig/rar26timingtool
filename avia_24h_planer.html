@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVIA Racing - 24h Planer</title>
+
+    <!-- Firebase SDK (Compat Version for no-build setup) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --avia-red: #e3000f;
+            --avia-red-dark: #b3000b;
+            --avia-red-light: #ff4d58;
+            --bg-color: #f4f5f7;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            --border-color: #e1e8ed;
+            --success: #2ecc71;
+            --warning: #f1c40f;
+            --danger: #e74c3c;
+            --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            line-height: 1.6;
+            padding-bottom: 50px;
+        }
+
+        /* View-Only Mode Styles */
+        body.view-only .admin-only {
+            display: none !important;
+        }
+        body.view-only input:disabled, 
+        body.view-only select:disabled {
+            pointer-events: none;
+            border: 1px solid transparent;
+            background: transparent;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            color: inherit;
+            opacity: 1; /* override iOS dimming */
+        }
+
+        /* Toggle Switch Styles */
+        .toggle-switch-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f1f3f5;
+            padding: 6px 14px;
+            border-radius: 30px;
+            border: 1px solid #e1e8ed;
+        }
+        .toggle-label {
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--text-muted);
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--success);
+        }
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        header {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            color: var(--text-main);
+            padding: 12px 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+        
+        .logo-img {
+            max-height: 50px;
+            object-fit: contain;
+        }
+
+        .header-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #cutoff-indicator {
+            background: rgba(227, 0, 15, 0.08);
+            color: var(--avia-red);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            border: 1px solid rgba(227, 0, 15, 0.1);
+        }
+        #cutoff-indicator.danger {
+            background: var(--avia-red);
+            color: white;
+            animation: pulse 1s infinite alternate;
+        }
+
+        .ticker-bar {
+            background-color: var(--warning);
+            color: #000;
+            text-align: center;
+            padding: 12px;
+            font-weight: bold;
+            position: sticky;
+            top: 76px;
+            z-index: 90;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .ticker-bar.hidden {
+            display: none;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .btn {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-main);
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            min-height: 44px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        }
+        .btn:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .btn.primary {
+            background-color: var(--avia-red);
+            color: white;
+            border-color: var(--avia-red);
+        }
+        .btn.primary:hover {
+            background-color: var(--avia-red-dark);
+            border-color: var(--avia-red-dark);
+        }
+
+        input[type="file"] { display: none; }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-color);
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .tabs::-webkit-scrollbar { display: none; }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+        .tab-btn.active {
+            color: var(--avia-red);
+            border-bottom-color: var(--avia-red);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.04);
+            border: 1px solid rgba(0,0,0,0.02);
+            padding: 24px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+
+        h2 { margin-bottom: 20px; color: var(--text-main); font-size: 1.4rem; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;}
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+        th, td {
+            padding: 16px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+        tbody tr {
+            transition: background-color 0.2s;
+        }
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        th {
+            background-color: transparent;
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid var(--border-color);
+        }
+        tr:hover { background-color: #f8f9fa; }
+        
+        .row-cutoff { background-color: #fff3f3; }
+        .row-cutoff td { color: var(--avia-red-dark); }
+
+        input[type="text"], input[type="date"], input[type="time"], input[type="number"] {
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            width: 100px;
+            transition: border-color 0.2s;
+            min-height: 44px;
+            touch-action: manipulation;
+        }
+        input[type="text"]:focus, input[type="date"]:focus, input[type="time"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: var(--avia-red);
+            box-shadow: 0 0 0 2px rgba(227, 0, 15, 0.1);
+        }
+
+        select {
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 1rem;
+            background-color: white;
+            min-width: 150px;
+            min-height: 44px;
+            touch-action: manipulation;
+        }
+
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        
+        .diff-pos { color: var(--danger); font-weight: bold; }
+        .diff-neg { color: var(--success); font-weight: bold; }
+
+        .driver-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        tr.drag-over {
+            border-top: 2px solid var(--avia-red);
+        }
+        .drag-handle {
+            cursor: grab;
+            color: var(--text-muted);
+            margin-right: 10px;
+            font-size: 1.2rem;
+            user-select: none;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            font-size: 1.4rem;
+            padding: 5px 10px;
+            min-height: 44px;
+            min-width: 44px;
+            touch-action: manipulation;
+        }
+        .action-btn:hover { color: var(--avia-red-dark); }
+
+        .form-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            header { flex-direction: column; gap: 10px; text-align: center; padding: 1rem; }
+            .toolbar { flex-direction: column; }
+            .toolbar > div { flex-direction: column; width: 100%; gap: 10px !important; }
+            .btn { width: 100%; justify-content: center; }
+            .tab-btn { padding: 12px 15px; font-size: 0.95rem; }
+            .card { padding: 15px 10px; border-radius: 0; border-left: none; border-right: none; }
+            
+            .table-container { margin: 0 -10px; width: calc(100% + 20px); border-radius: 0; }
+            table { font-size: 0.9rem; }
+            th, td { padding: 6px 4px; }
+            
+            .form-group { flex-direction: column; align-items: stretch; gap: 10px; }
+            .form-group input, .form-group button { width: 100% !important; margin-left: 0 !important; }
+            
+            td input[type="text"] { width: 65px !important; padding: 8px 4px; font-size: 0.9rem; }
+            td select { width: 120px !important; min-width: 120px; padding: 8px 4px; font-size: 0.9rem; }
+            .action-btn { min-width: 38px; min-height: 38px; padding: 5px; font-size: 1.2rem; }
+        }
+    </style>
+</head>
+<body class="view-only">
+
+    <header>
+        <div style="flex: 1;"></div>
+        <div class="header-title" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); text-align: center; flex: 1; white-space: nowrap;">
+            Rad am Ring '26 Timing Tool
+        </div>
+        <div class="header-info" style="display:flex; align-items:center; gap: 15px; flex: 1; justify-content: flex-end;">
+            <div id="cutoff-indicator">Cut-off Status: Lädt...</div>
+            <div class="toggle-switch-container">
+                <span class="toggle-label" id="label-lese" style="opacity: 1;">👁️ Lese-Modus</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="admin-toggle-checkbox" onchange="toggleAdminMode()">
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-label" id="label-admin" style="opacity: 0.5;">✏️ Admin</span>
+            </div>
+        </div>
+    </header>
+    <div id="driver-ticker" class="ticker-bar hidden"></div>
+
+    <div class="container">
+        <div class="toolbar admin-only">
+            <div style="display: flex; gap: 10px;">
+                <button class="btn primary" onclick="exportData()">💾 Stand Speichern</button>
+                <input type="file" id="import-file" accept=".json" onchange="importData(event)">
+                <label for="import-file" class="btn">📂 Stand Laden</label>
+            </div>
+            <div>
+                <button class="btn" onclick="resetData()" style="color: var(--danger); border-color: var(--danger);">⚠️ Reset</button>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('team-avia1')">AVIA I (Männer)</button>
+            <button class="tab-btn" onclick="switchTab('team-avia2')">AVIA II (Männer)</button>
+            <button class="tab-btn" onclick="switchTab('team-frauen')">AVIA Frauen</button>
+            <button class="tab-btn" onclick="switchTab('master-data')">⚙️ Fahrerverwaltung</button>
+        </div>
+
+        <!-- Team AVIA I -->
+        <div id="team-avia1" class="tab-content active">
+            <div class="card">
+                <h2>Rundenplanung - AVIA I</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Runde</th>
+                                <th>Fahrer</th>
+                                <th>Startzeit</th>
+                                <th>SOLL-Zeit</th>
+                                <th>IST-Zeit (mm:ss)</th>
+                                <th>Differenz</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-avia1"></tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn primary admin-only" onclick="addLap('avia1')">+ Runde hinzufügen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team AVIA II -->
+        <div id="team-avia2" class="tab-content">
+            <div class="card">
+                <h2>Rundenplanung - AVIA II</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Runde</th>
+                                <th>Fahrer</th>
+                                <th>Startzeit</th>
+                                <th>SOLL-Zeit</th>
+                                <th>IST-Zeit (mm:ss)</th>
+                                <th>Differenz</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-avia2"></tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn primary admin-only" onclick="addLap('avia2')">+ Runde hinzufügen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team AVIA Frauen -->
+        <div id="team-frauen" class="tab-content">
+            <div class="card">
+                <h2>Rundenplanung - AVIA Frauen</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Runde</th>
+                                <th>Fahrer</th>
+                                <th>Startzeit</th>
+                                <th>SOLL-Zeit</th>
+                                <th>IST-Zeit (mm:ss)</th>
+                                <th>Differenz</th>
+                                <th>Aktion</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-frauen"></tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn primary admin-only" onclick="addLap('frauen')">+ Runde hinzufügen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Master Data -->
+        <div id="master-data" class="tab-content">
+            <div class="driver-grid">
+                <!-- Allgemeine Einstellungen -->
+                <div class="card">
+                    <h2>Allgemeine Einstellungen</h2>
+                    <div class="form-group" style="flex-wrap: wrap;">
+                        <label>Renn-Start Datum:</label>
+                        <input type="date" id="config-start-date" onchange="updateConfig('startDate', this.value)">
+                        <label style="margin-left: 10px;">Uhrzeit:</label>
+                        <input type="time" id="config-start-time" onchange="updateConfig('startTime', this.value)" style="width: 120px;">
+                        <label style="margin-left: 20px;">Ticker Vorwarnzeit (Min):</label>
+                        <input type="number" id="config-warning-min" min="1" max="60" onchange="updateConfig('warningMinutes', this.value)" style="width: 70px;">
+                    </div>
+                </div>
+
+                <!-- AVIA I Settings -->
+                <div class="card">
+                    <h2>Fahrer AVIA I</h2>
+                    <div class="form-group admin-only">
+                        <input type="text" id="new-driver-name-avia1" placeholder="Name" style="width: 150px;">
+                        <input type="text" id="new-driver-soll-avia1" placeholder="41:00" style="width: 80px;">
+                        <button class="btn" onclick="addDriver('avia1')">Hinzufügen</button>
+                        <button class="btn" style="margin-left: auto; color: var(--text-muted);" onclick="applyRotation('avia1')" title="Übernimmt die aktuelle Reihenfolge für alle Runden in der Planungstabelle">🔄 Auf Plan anwenden</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>Name</th><th>SOLL</th><th>ø IST</th><th>Aktionen</th></tr></thead>
+                        <tbody id="drivers-avia1"></tbody>
+                    </table>
+                </div>
+                
+                <!-- AVIA II Settings -->
+                <div class="card">
+                    <h2>Fahrer AVIA II</h2>
+                    <div class="form-group admin-only">
+                        <input type="text" id="new-driver-name-avia2" placeholder="Name" style="width: 150px;">
+                        <input type="text" id="new-driver-soll-avia2" placeholder="41:00" style="width: 80px;">
+                        <button class="btn" onclick="addDriver('avia2')">Hinzufügen</button>
+                        <button class="btn" style="margin-left: auto; color: var(--text-muted);" onclick="applyRotation('avia2')" title="Übernimmt die aktuelle Reihenfolge für alle Runden in der Planungstabelle">🔄 Auf Plan anwenden</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>Name</th><th>SOLL</th><th>ø IST</th><th>Aktionen</th></tr></thead>
+                        <tbody id="drivers-avia2"></tbody>
+                    </table>
+                </div>
+
+                <!-- Frauen Settings -->
+                <div class="card">
+                    <h2>Fahrer AVIA Frauen</h2>
+                    <div class="form-group admin-only">
+                        <input type="text" id="new-driver-name-frauen" placeholder="Name" style="width: 150px;">
+                        <input type="text" id="new-driver-soll-frauen" placeholder="50:00" style="width: 80px;">
+                        <button class="btn" onclick="addDriver('frauen')">Hinzufügen</button>
+                        <button class="btn" style="margin-left: auto; color: var(--text-muted);" onclick="applyRotation('frauen')" title="Übernimmt die aktuelle Reihenfolge für alle Runden in der Planungstabelle">🔄 Auf Plan anwenden</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>Name</th><th>SOLL</th><th>ø IST</th><th>Aktionen</th></tr></thead>
+                        <tbody id="drivers-frauen"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONSTANTS & CONFIG ---
+        const TEAMS = ['avia1', 'avia2', 'frauen'];
+
+        // --- FIREBASE INIT ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAzZUrgfZLXYQmNS3r5Z5zYZWmQIhW8VkI",
+            authDomain: "rar26-a34c5.firebaseapp.com",
+            databaseURL: "https://rar26-a34c5-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "rar26-a34c5",
+            storageBucket: "rar26-a34c5.firebasestorage.app",
+            messagingSenderId: "185052710717",
+            appId: "1:185052710717:web:036421e11bde50700fa754"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // --- GLOBAL STATE ---
+        window.isAdminMode = false;
+        window.nextDrivers = [];
+
+        function toggleAdminMode() {
+            const checkbox = document.getElementById('admin-toggle-checkbox');
+            window.isAdminMode = checkbox.checked;
+            
+            if (window.isAdminMode) {
+                document.getElementById('label-lese').style.opacity = '0.5';
+                document.getElementById('label-admin').style.opacity = '1';
+                document.body.classList.remove('view-only');
+                // Push local state to firebase to initialize if empty
+                saveToFirebase();
+            } else {
+                document.getElementById('label-lese').style.opacity = '1';
+                document.getElementById('label-admin').style.opacity = '0.5';
+                document.body.classList.add('view-only');
+            }
+            renderAll();
+        }
+
+        function getRaceStart() {
+            if(!data.config) return new Date('2026-07-18T12:55:00').getTime();
+            return new Date(`${data.config.startDate}T${data.config.startTime}:00`).getTime();
+        }
+
+        function getRaceCutoff() {
+            if(!data.config) return new Date('2026-07-19T12:14:59').getTime();
+            const start = new Date(`${data.config.startDate}T${data.config.startTime}:00`);
+            start.setDate(start.getDate() + 1);
+            start.setHours(12, 14, 59, 0);
+            return start.getTime();
+        }
+
+        window.nextDrivers = [];
+
+        // --- STATE ---
+        let data = {
+            config: {
+                startDate: '2026-07-18',
+                startTime: '12:55',
+                warningMinutes: 15
+            },
+            drivers: [
+                {id: 'avia1-1', team: 'avia1', name: 'Hagen', soll: '41:00'},
+                {id: 'avia1-2', team: 'avia1', name: 'Timo', soll: '41:00'},
+                {id: 'avia1-3', team: 'avia1', name: 'Tim', soll: '41:00'},
+                {id: 'avia1-4', team: 'avia1', name: 'Rapha', soll: '41:00'},
+                {id: 'avia1-5', team: 'avia1', name: 'Maik', soll: '41:00'},
+                {id: 'avia1-6', team: 'avia1', name: 'Till', soll: '41:00'},
+                {id: 'avia1-7', team: 'avia1', name: 'Kilian', soll: '41:00'},
+                {id: 'avia1-8', team: 'avia1', name: 'Florian S.', soll: '41:00'},
+                {id: 'avia2-1', team: 'avia2', name: 'Simon', soll: '41:00'},
+                {id: 'avia2-2', team: 'avia2', name: 'Lukas', soll: '41:00'},
+                {id: 'avia2-3', team: 'avia2', name: 'Stefan', soll: '41:00'},
+                {id: 'avia2-4', team: 'avia2', name: 'Hauke', soll: '41:00'},
+                {id: 'avia2-5', team: 'avia2', name: 'Marc', soll: '41:00'},
+                {id: 'avia2-6', team: 'avia2', name: 'Julius', soll: '41:00'},
+                {id: 'avia2-7', team: 'avia2', name: 'Tobi', soll: '41:00'},
+                {id: 'avia2-8', team: 'avia2', name: 'Florian V.', soll: '41:00'},
+                {id: 'frauen-1', team: 'frauen', name: 'Anna', soll: '50:00'},
+                {id: 'frauen-2', team: 'frauen', name: 'Conny', soll: '50:00'},
+                {id: 'frauen-3', team: 'frauen', name: 'Anne', soll: '50:00'},
+                {id: 'frauen-4', team: 'frauen', name: 'Larissa', soll: '50:00'},
+                {id: 'frauen-5', team: 'frauen', name: 'Marie', soll: '50:00'},
+                {id: 'frauen-6', team: 'frauen', name: 'Kimberly', soll: '50:00'},
+                {id: 'frauen-7', team: 'frauen', name: 'Emma', soll: '50:00'},
+                {id: 'frauen-8', team: 'frauen', name: 'Amelie', soll: '50:00'}
+            ],
+            laps: {
+                avia1: [], // { id, driverId, ist }
+                avia2: [],
+                frauen: []
+            }
+        };
+
+        // --- HELPERS ---
+        function generateId() { return Math.random().toString(36).substr(2, 9); }
+        
+        function timeToSeconds(timeStr) {
+            if (!timeStr) return 0;
+            const parts = timeStr.split(':');
+            if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+            if (parts.length === 3) return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+            return parseInt(timeStr) * 60 || 0;
+        }
+
+        function secondsToTime(sec, showSign = false) {
+            if (isNaN(sec)) return '';
+            const sign = sec < 0 ? '-' : (showSign && sec > 0 ? '+' : '');
+            sec = Math.abs(sec);
+            const m = Math.floor(sec / 60);
+            const s = Math.round(sec % 60);
+            return `${sign}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function formatDateTime(ms) {
+            const d = new Date(ms);
+            const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+            const day = days[d.getDay()];
+            const h = d.getHours().toString().padStart(2, '0');
+            const m = d.getMinutes().toString().padStart(2, '0');
+            return `${day} ${h}:${m}`;
+        }
+
+        // --- CORE LOGIC ---
+        function addDriver(team) {
+            const nameInput = document.getElementById(`new-driver-name-${team}`);
+            const sollInput = document.getElementById(`new-driver-soll-${team}`);
+            const name = nameInput.value.trim();
+            let soll = sollInput.value.trim() || (team === 'frauen' ? '50:00' : '41:00');
+            
+            if (!name) return alert('Bitte Namen eingeben');
+            if (!soll.includes(':')) soll += ':00'; // Default to minutes if no colon
+
+            data.drivers.push({
+                id: generateId(),
+                team: team,
+                name: name,
+                soll: soll
+            });
+
+            nameInput.value = '';
+            sollInput.value = '';
+            
+            saveToLocal();
+            renderAll();
+        }
+
+        function deleteDriver(id) {
+            if(confirm('Fahrer wirklich löschen?')) {
+                data.drivers = data.drivers.filter(d => d.id !== id);
+                TEAMS.forEach(t => {
+                    data.laps[t].forEach(l => {
+                        if(l.driverId === id) l.driverId = '';
+                    });
+                });
+                saveToLocal();
+                renderAll();
+            }
+        }
+
+        function getDriverAverages() {
+            let stats = {};
+            data.drivers.forEach(d => stats[d.id] = { totalSec: 0, count: 0 });
+            
+            TEAMS.forEach(t => {
+                data.laps[t].forEach(lap => {
+                    if (lap.driverId && lap.ist) {
+                        if(!stats[lap.driverId]) stats[lap.driverId] = {totalSec:0, count:0};
+                        stats[lap.driverId].totalSec += timeToSeconds(lap.ist);
+                        stats[lap.driverId].count++;
+                    }
+                });
+            });
+            return stats;
+        }
+
+        function updateDriverSoll(id, newSoll) {
+            const d = data.drivers.find(x => x.id === id);
+            if(d) {
+                d.soll = newSoll;
+                saveToLocal();
+                renderAll();
+            }
+        }
+
+        function autoSelectNextDriver(team) {
+            const teamDrivers = data.drivers.filter(d => d.team === team);
+            if (teamDrivers.length === 0) return '';
+            
+            const laps = data.laps[team];
+            if (laps.length === 0) return teamDrivers[0].id;
+            
+            const lastLap = laps[laps.length - 1];
+            const lastDriverId = lastLap.driverId;
+            const idx = teamDrivers.findIndex(d => d.id === lastDriverId);
+            
+            if (idx === -1) return teamDrivers[0].id;
+            const nextIdx = (idx + 1) % teamDrivers.length;
+            return teamDrivers[nextIdx].id;
+        }
+
+        function addLap(team) {
+            const nextDriverId = autoSelectNextDriver(team);
+            data.laps[team].push({
+                id: generateId(),
+                driverId: nextDriverId,
+                ist: ''
+            });
+            saveToLocal();
+            renderAll();
+        }
+
+        function updateLapIst(team, lapId, istValue) {
+            const lap = data.laps[team].find(l => l.id === lapId);
+            if(lap) {
+                lap.ist = istValue;
+                saveToLocal();
+                renderAll();
+            }
+        }
+
+        function applyRotation(team) {
+            if(!confirm('Achtung: Dies überschreibt alle Fahrerzuweisungen in der Planungstabelle für dieses Team mit der neuen Reihenfolge. Fortfahren?')) return;
+            
+            const teamDrivers = data.drivers.filter(d => d.team === team);
+            if(teamDrivers.length === 0) return;
+            
+            data.laps[team].forEach((lap, index) => {
+                const nextIdx = index % teamDrivers.length;
+                lap.driverId = teamDrivers[nextIdx].id;
+                lap.soll = ''; 
+            });
+            saveToLocal();
+            renderAll();
+        }
+
+        function updateLapDriver(team, lapId, driverId) {
+            const lap = data.laps[team].find(l => l.id === lapId);
+            if(lap) {
+                lap.driverId = driverId;
+                lap.soll = '';
+                saveToLocal();
+                renderAll();
+            }
+        }
+
+        function updateLapSoll(team, lapId, newSoll) {
+            const lap = data.laps[team].find(l => l.id === lapId);
+            if(lap) {
+                lap.soll = newSoll;
+                saveToLocal();
+                renderAll();
+            }
+        }
+
+        function deleteLap(team, lapId) {
+            if(confirm('Runde wirklich komplett löschen?')) {
+                data.laps[team] = data.laps[team].filter(l => l.id !== lapId);
+                saveToLocal();
+                renderAll();
+            }
+        }
+
+        function resetLapTimes(team, lapId) {
+            const lap = data.laps[team].find(l => l.id === lapId);
+            if(lap) {
+                lap.ist = '';
+                lap.soll = '';
+                saveToLocal();
+                renderAll();
+            }
+        }
+
+        let draggedDriverId = null;
+
+        function handleDragStart(e, id) {
+            draggedDriverId = id;
+            e.target.style.opacity = '0.5';
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragEnd(e) {
+            e.target.style.opacity = '1';
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e, targetId) {
+            e.stopPropagation();
+            e.currentTarget.classList.remove('drag-over');
+            
+            if (draggedDriverId && draggedDriverId !== targetId) {
+                const sourceIdx = data.drivers.findIndex(d => d.id === draggedDriverId);
+                const targetIdx = data.drivers.findIndex(d => d.id === targetId);
+                
+                if(sourceIdx !== -1 && targetIdx !== -1) {
+                    if(data.drivers[sourceIdx].team === data.drivers[targetIdx].team) {
+                        const [movedDriver] = data.drivers.splice(sourceIdx, 1);
+                        data.drivers.splice(targetIdx, 0, movedDriver);
+                        saveToLocal();
+                        renderAll();
+                    }
+                }
+            }
+            return false;
+        }
+
+        // --- RENDER LOGIC ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        function renderMasterData() {
+            const disableProp = !window.isAdminMode;
+            if (data.config) {
+                const sd = document.getElementById('config-start-date');
+                const st = document.getElementById('config-start-time');
+                const wm = document.getElementById('config-warning-min');
+                sd.value = data.config.startDate;
+                sd.disabled = disableProp;
+                st.value = data.config.startTime;
+                st.disabled = disableProp;
+                wm.value = data.config.warningMinutes;
+                wm.disabled = disableProp;
+            }
+
+            const stats = getDriverAverages();
+            TEAMS.forEach(team => {
+                const tbody = document.getElementById(`drivers-${team}`);
+                const teamDrivers = data.drivers.filter(d => d.team === team);
+                
+                tbody.innerHTML = teamDrivers.map(d => {
+                    const avgStr = stats[d.id].count > 0 ? secondsToTime(stats[d.id].totalSec / stats[d.id].count) : '-';
+                    const disabledAttr = window.isAdminMode ? '' : 'disabled';
+                    return `
+                        <tr draggable="true" 
+                            ondragstart="handleDragStart(event, '${d.id}')"
+                            ondragend="handleDragEnd(event)"
+                            ondragover="handleDragOver(event)"
+                            ondragenter="handleDragEnter(event)"
+                            ondragleave="handleDragLeave(event)"
+                            ondrop="handleDrop(event, '${d.id}')">
+                            <td><span class="drag-handle admin-only" title="Ziehen zum Verschieben">☰</span><strong>${d.name}</strong></td>
+                            <td><input type="text" value="${d.soll}" onchange="updateDriverSoll('${d.id}', this.value)" style="width:70px" ${disabledAttr}></td>
+                            <td>${avgStr} <small>(${stats[d.id].count} Rnd)</small></td>
+                            <td style="white-space: nowrap;">
+                                <button class="action-btn admin-only" onclick="deleteDriver('${d.id}')" title="Fahrer löschen" style="margin-left: 5px;">🗑</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            });
+        }
+
+        function renderLaps() {
+            let anyCutoffRisk = false;
+
+            window.nextDrivers = [];
+            TEAMS.forEach(team => {
+                const tbody = document.getElementById(`tbody-${team}`);
+                const teamDrivers = data.drivers.filter(d => d.team === team);
+                
+                let currentStartTime = getRaceStart();
+                let foundNext = false;
+                let html = '';
+
+                data.laps[team].forEach((lap, index) => {
+                    const driver = data.drivers.find(d => d.id === lap.driverId);
+                    const defaultSollStr = driver ? driver.soll : '00:00';
+                    const sollStr = lap.soll || defaultSollStr;
+                    const sollSec = timeToSeconds(sollStr);
+                    const istSec = timeToSeconds(lap.ist);
+                    
+                    if (!lap.ist && !foundNext) {
+                        foundNext = true;
+                        window.nextDrivers.push({
+                            team: team,
+                            driverName: driver ? driver.name : 'Unbekannt',
+                            startTime: currentStartTime
+                        });
+                    }
+
+                    const durationSec = istSec > 0 ? istSec : sollSec;
+                    
+                    // Check Cutoff
+                    const isCutoff = currentStartTime > getRaceCutoff();
+                    if(isCutoff) anyCutoffRisk = true;
+
+                    // Calculate Diff
+                    let diffHtml = '-';
+                    if (istSec > 0 && sollSec > 0) {
+                        const diffSec = istSec - sollSec;
+                        const signClass = diffSec > 0 ? 'diff-pos' : 'diff-neg';
+                        diffHtml = `<span class="${signClass}">${secondsToTime(diffSec, true)}</span>`;
+                    }
+
+                    // Driver options
+                    const options = `<option value="">-- Fahrer --</option>` + 
+                        teamDrivers.map(d => `<option value="${d.id}" ${d.id === lap.driverId ? 'selected' : ''}>${d.name}</option>`).join('');
+
+                    const disabledAttr = window.isAdminMode ? '' : 'disabled';
+                    html += `
+                        <tr class="${isCutoff ? 'row-cutoff' : ''}">
+                            <td>${index + 1}</td>
+                            <td><select onchange="updateLapDriver('${team}', '${lap.id}', this.value)" ${disabledAttr}>${options}</select></td>
+                            <td><strong>${formatDateTime(currentStartTime)}</strong></td>
+                            <td><input type="text" value="${lap.soll || sollStr}" placeholder="${defaultSollStr}" onchange="updateLapSoll('${team}', '${lap.id}', this.value)" style="width:70px" ${disabledAttr}></td>
+                            <td><input type="text" value="${lap.ist}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this.value)" ${disabledAttr}></td>
+                            <td>${diffHtml}</td>
+                            <td>
+                                <button class="action-btn admin-only" onclick="resetLapTimes('${team}', '${lap.id}')" title="Zeiten dieser Runde leeren" style="color: var(--warning); font-size: 1.1rem; margin-right: 5px;">🔄</button>
+                                <button class="action-btn admin-only" onclick="deleteLap('${team}', '${lap.id}')" title="Ganze Runde löschen">🗑</button>
+                            </td>
+                        </tr>
+                    `;
+                    
+                    // Advance time
+                    currentStartTime += durationSec * 1000;
+                });
+                
+                // Cut-Off Preview for the NEXT (potential) lap
+                const cutoffTime = getRaceCutoff();
+                const diffToCutoffMs = cutoffTime - currentStartTime;
+                const diffToCutoffMin = Math.floor(diffToCutoffMs / 60000);
+
+                if (diffToCutoffMin < 90) { // Warn if less than 90 mins left
+                    const isTooLate = diffToCutoffMin < 0;
+                    const bgColor = isTooLate ? 'rgba(227, 0, 15, 0.08)' : 'rgba(241, 196, 15, 0.15)';
+                    const textColor = isTooLate ? 'var(--avia-red)' : '#d39e00';
+                    const icon = isTooLate ? '🛑' : '⚠️';
+                    const msg = isTooLate 
+                        ? `CUT-OFF: Jede weitere Runde würde NACH dem Cut-Off starten (${Math.abs(diffToCutoffMin)} Min zu spät)!` 
+                        : `CUT-OFF GEFAHR: Nur noch ${diffToCutoffMin} Min. Puffer für eine zusätzliche Runde!`;
+                    
+                    html += `
+                        <tr style="background-color: ${bgColor}; color: ${textColor}; font-weight: bold; border-top: 2px solid ${textColor};">
+                            <td colspan="7" style="text-align: center; padding: 12px; font-size: 0.95rem;">
+                                ${icon} ${msg}
+                            </td>
+                        </tr>
+                    `;
+                }
+                
+                tbody.innerHTML = html;
+            });
+
+            // Update Cutoff Indicator
+            const indicator = document.getElementById('cutoff-indicator');
+            if (anyCutoffRisk) {
+                indicator.className = 'danger';
+                indicator.innerHTML = '⚠️ CUT-OFF GEFAHR!';
+            } else {
+                indicator.className = '';
+                indicator.innerHTML = '✅ Cut-off: OK';
+            }
+        }
+
+        function updateDriverSollsWithAverages() {
+            const stats = getDriverAverages();
+            let changed = false;
+            data.drivers.forEach(d => {
+                if (stats[d.id] && stats[d.id].count > 0) {
+                    const avgSec = stats[d.id].totalSec / stats[d.id].count;
+                    const newSoll = secondsToTime(avgSec, false);
+                    if (d.soll !== newSoll) {
+                        d.soll = newSoll;
+                        changed = true;
+                    }
+                }
+            });
+            if (changed) saveToLocal();
+        }
+
+        function updateConfig(key, value) {
+            if (!data.config) data.config = {};
+            data.config[key] = value;
+            saveToLocal();
+            renderAll();
+        }
+
+        function updateTicker() {
+            const now = new Date().getTime();
+            const warnings = [];
+            const warnMin = data.config ? parseInt(data.config.warningMinutes, 10) || 15 : 15;
+            
+            window.nextDrivers.forEach(nd => {
+                const diffMs = nd.startTime - now;
+                const diffMin = Math.floor(diffMs / 60000);
+                const teamName = nd.team.toUpperCase();
+                
+                if (diffMin >= 0 && diffMin <= warnMin) {
+                    warnings.push(`⚠️ ${teamName}: ${nd.driverName} startet in ${diffMin} Min!`);
+                } else if (diffMin < 0 && diffMin >= -15) { 
+                    warnings.push(`🚨 ${teamName}: ${nd.driverName} ist ${Math.abs(diffMin)} Min überfällig!`);
+                }
+            });
+            
+            const tickerEl = document.getElementById('driver-ticker');
+            if (warnings.length > 0) {
+                tickerEl.innerHTML = warnings.join(' &nbsp;&nbsp;|&nbsp;&nbsp; ');
+                tickerEl.classList.remove('hidden');
+            } else {
+                tickerEl.classList.add('hidden');
+            }
+        }
+
+        setInterval(updateTicker, 10000);
+
+        function renderAll() {
+            updateDriverSollsWithAverages();
+            renderMasterData();
+            renderLaps();
+            updateTicker();
+        }
+
+        // --- PERSISTENCE (Firebase) ---
+        function saveToFirebase() {
+            if (!window.isAdminMode) return; // Only admin can push to database
+            database.ref('raceData').set(data);
+        }
+
+        function saveToLocal() {
+            saveToFirebase(); // Redirect legacy calls to firebase
+        }
+
+        function loadFromFirebase() {
+            database.ref('raceData').on('value', (snapshot) => {
+                const val = snapshot.val();
+                if (val) {
+                    data = val;
+                    if(!data.laps) data.laps = { avia1: [], avia2: [], frauen: [] };
+                    renderAll();
+                } else {
+                    // Firebase empty -> init 34 laps locally
+                    TEAMS.forEach(t => {
+                        while(data.laps[t].length < 34) {
+                            data.laps[t].push({ id: generateId(), driverId: autoSelectNextDriver(t), ist: '' });
+                        }
+                    });
+                    renderAll();
+                }
+            });
+        }
+
+        function resetData() {
+            if(confirm('ACHTUNG: Alle Daten für ALLE Nutzer in Echtzeit löschen? Dies kann nicht rückgängig gemacht werden.')) {
+                if (window.isAdminMode) {
+                    database.ref('raceData').remove();
+                } else {
+                    alert('Nur im Admin-Modus möglich.');
+                }
+            }
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href",     dataStr);
+            downloadAnchorNode.setAttribute("download", "avia_24h_planung_" + new Date().getTime() + ".json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function importData(event) {
+            if (!window.isAdminMode) {
+                alert('Nur im Admin-Modus möglich.');
+                event.target.value = '';
+                return;
+            }
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if(imported && imported.drivers && imported.laps) {
+                        data = imported;
+                        saveToFirebase();
+                        renderAll();
+                        alert('Daten erfolgreich für alle geladen!');
+                    } else {
+                        alert('Ungültige Datei-Struktur.');
+                    }
+                } catch(err) {
+                    alert('Fehler beim Lesen der Datei.');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            loadFromFirebase();
+        };
+
+    </script>
+    <footer style="margin-top: 40px; background: white; border-top: 1px solid var(--border-color); padding: 30px 20px;">
+        <div class="logo-container" style="display: flex; justify-content: center; align-items: center; gap: 50px; flex-wrap: wrap;">
+            <img src="schulte-logo.jpg" alt="M. Schulte Söhne" class="logo-img" style="max-height: 50px; filter: grayscale(100%); opacity: 0.8; transition: 0.3s;" onmouseover="this.style.filter='none'; this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%)'; this.style.opacity='0.8'">
+            <img src="cyclebean-logo.png" alt="CYCLEBEAN" class="logo-img" style="max-height: 50px; filter: grayscale(100%); opacity: 0.8; transition: 0.3s;" onmouseover="this.style.filter='none'; this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%)'; this.style.opacity='0.8'">
+            <img src="avia-logo.png" alt="AVIA Racing" class="logo-img" style="max-height: 60px; filter: grayscale(100%); opacity: 0.8; transition: 0.3s;" onmouseover="this.style.filter='none'; this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%)'; this.style.opacity='0.8'">
+        </div>
+    </footer>
+</body>
+</html>
