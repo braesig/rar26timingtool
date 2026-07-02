@@ -39,6 +39,12 @@
         body.view-only .admin-only {
             display: none !important;
         }
+        
+        /* Hide Action columns completely in view-only */
+        body.view-only th:last-child,
+        body.view-only td:last-child {
+            display: none !important;
+        }
         body.view-only input:disabled, 
         body.view-only select:disabled {
             pointer-events: none;
