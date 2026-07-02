@@ -647,44 +647,48 @@
         window.nextDrivers = [];
 
         // --- STATE ---
-        let data = {
-            config: {
-                startDate: '2026-07-18',
-                startTime: '12:55',
-                warningMinutes: 15
-            },
-            drivers: [
-                {id: 'avia1-1', team: 'avia1', name: 'Hagen', soll: '41:00'},
-                {id: 'avia1-2', team: 'avia1', name: 'Timo', soll: '41:00'},
-                {id: 'avia1-3', team: 'avia1', name: 'Tim', soll: '41:00'},
-                {id: 'avia1-4', team: 'avia1', name: 'Rapha', soll: '41:00'},
-                {id: 'avia1-5', team: 'avia1', name: 'Maik', soll: '41:00'},
-                {id: 'avia1-6', team: 'avia1', name: 'Till', soll: '41:00'},
-                {id: 'avia1-7', team: 'avia1', name: 'Kilian', soll: '41:00'},
-                {id: 'avia1-8', team: 'avia1', name: 'Florian S.', soll: '41:00'},
-                {id: 'avia2-1', team: 'avia2', name: 'Simon', soll: '41:00'},
-                {id: 'avia2-2', team: 'avia2', name: 'Lukas', soll: '41:00'},
-                {id: 'avia2-3', team: 'avia2', name: 'Stefan', soll: '41:00'},
-                {id: 'avia2-4', team: 'avia2', name: 'Hauke', soll: '41:00'},
-                {id: 'avia2-5', team: 'avia2', name: 'Marc', soll: '41:00'},
-                {id: 'avia2-6', team: 'avia2', name: 'Julius', soll: '41:00'},
-                {id: 'avia2-7', team: 'avia2', name: 'Tobi', soll: '41:00'},
-                {id: 'avia2-8', team: 'avia2', name: 'Florian V.', soll: '41:00'},
-                {id: 'frauen-1', team: 'frauen', name: 'Anna', soll: '50:00'},
-                {id: 'frauen-2', team: 'frauen', name: 'Conny', soll: '50:00'},
-                {id: 'frauen-3', team: 'frauen', name: 'Anne', soll: '50:00'},
-                {id: 'frauen-4', team: 'frauen', name: 'Larissa', soll: '50:00'},
-                {id: 'frauen-5', team: 'frauen', name: 'Marie', soll: '50:00'},
-                {id: 'frauen-6', team: 'frauen', name: 'Kimberly', soll: '50:00'},
-                {id: 'frauen-7', team: 'frauen', name: 'Emma', soll: '50:00'},
-                {id: 'frauen-8', team: 'frauen', name: 'Amelie', soll: '50:00'}
-            ],
-            laps: {
-                avia1: [], // { id, driverId, ist }
-                avia2: [],
-                frauen: []
-            }
-        };
+        function getDefaultData() {
+            return {
+                config: {
+                    startDate: '2026-07-18',
+                    startTime: '12:55',
+                    warningMinutes: 15
+                },
+                drivers: [
+                    {id: 'avia1-1', team: 'avia1', name: 'Hagen', soll: '41:00'},
+                    {id: 'avia1-2', team: 'avia1', name: 'Timo', soll: '41:00'},
+                    {id: 'avia1-3', team: 'avia1', name: 'Tim', soll: '41:00'},
+                    {id: 'avia1-4', team: 'avia1', name: 'Rapha', soll: '41:00'},
+                    {id: 'avia1-5', team: 'avia1', name: 'Maik', soll: '41:00'},
+                    {id: 'avia1-6', team: 'avia1', name: 'Till', soll: '41:00'},
+                    {id: 'avia1-7', team: 'avia1', name: 'Kilian', soll: '41:00'},
+                    {id: 'avia1-8', team: 'avia1', name: 'Florian S.', soll: '41:00'},
+                    {id: 'avia2-1', team: 'avia2', name: 'Simon', soll: '41:00'},
+                    {id: 'avia2-2', team: 'avia2', name: 'Lukas', soll: '41:00'},
+                    {id: 'avia2-3', team: 'avia2', name: 'Stefan', soll: '41:00'},
+                    {id: 'avia2-4', team: 'avia2', name: 'Hauke', soll: '41:00'},
+                    {id: 'avia2-5', team: 'avia2', name: 'Marc', soll: '41:00'},
+                    {id: 'avia2-6', team: 'avia2', name: 'Julius', soll: '41:00'},
+                    {id: 'avia2-7', team: 'avia2', name: 'Tobi', soll: '41:00'},
+                    {id: 'avia2-8', team: 'avia2', name: 'Florian V.', soll: '41:00'},
+                    {id: 'frauen-1', team: 'frauen', name: 'Anna', soll: '50:00'},
+                    {id: 'frauen-2', team: 'frauen', name: 'Conny', soll: '50:00'},
+                    {id: 'frauen-3', team: 'frauen', name: 'Anne', soll: '50:00'},
+                    {id: 'frauen-4', team: 'frauen', name: 'Larissa', soll: '50:00'},
+                    {id: 'frauen-5', team: 'frauen', name: 'Marie', soll: '50:00'},
+                    {id: 'frauen-6', team: 'frauen', name: 'Kimberly', soll: '50:00'},
+                    {id: 'frauen-7', team: 'frauen', name: 'Emma', soll: '50:00'},
+                    {id: 'frauen-8', team: 'frauen', name: 'Amelie', soll: '50:00'}
+                ],
+                laps: {
+                    avia1: [],
+                    avia2: [],
+                    frauen: []
+                }
+            };
+        }
+        
+        let data = getDefaultData();
 
         // --- HELPERS ---
         function generateId() { return Math.random().toString(36).substr(2, 9); }
@@ -1063,20 +1067,6 @@
 
         }
 
-        function updateDriverSollsWithAverages() {
-            const stats = getDriverAverages();
-            let changed = false;
-            data.drivers.forEach(d => {
-                if (stats[d.id] && stats[d.id].count > 0) {
-                    const avgSec = stats[d.id].totalSec / stats[d.id].count;
-                    const newSoll = secondsToTime(avgSec, false);
-                    if (d.soll !== newSoll) {
-                        d.soll = newSoll;
-                        changed = true;
-                    }
-                }
-            });
-            if (changed) saveToLocal();
         }
 
         function updateConfig(key, value) {
@@ -1131,7 +1121,6 @@
         }, 3000);
 
         function renderAll() {
-            updateDriverSollsWithAverages();
             renderMasterData();
             renderLaps();
             updateTicker();
@@ -1155,7 +1144,8 @@
                     if(!data.laps) data.laps = { avia1: [], avia2: [], frauen: [] };
                     renderAll();
                 } else {
-                    // Firebase empty -> init 34 laps locally
+                    // Firebase empty -> init from defaults and build 34 laps locally
+                    data = getDefaultData();
                     TEAMS.forEach(t => {
                         while(data.laps[t].length < 34) {
                             data.laps[t].push({ id: generateId(), driverId: autoSelectNextDriver(t), ist: '' });
