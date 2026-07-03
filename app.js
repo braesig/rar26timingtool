@@ -262,8 +262,23 @@ function addLap(team) {
 
 function updateLapIst(team, lapId, istValue) {
     runTransaction(d => {
-        const lap = d.laps[team].find(l => l.id === lapId);
-        if (lap) lap.ist = istValue;
+        const laps = d.laps[team];
+        const lapIdx = laps.findIndex(l => l.id === lapId);
+        if (lapIdx === -1) return;
+        const lap = laps[lapIdx];
+        lap.ist = istValue;
+
+        if (!istValue) return; // Wert geloescht -> keine Weitergabe an die naechste Runde
+
+        // Durchschnitt des Fahrers ueber alle bisher erfassten Runden (inkl. dieser) neu berechnen
+        // und fest als SOLL-Zeit in dessen naechste noch offene Runde uebernehmen. Die SOLL-Zeit
+        // bereits gefahrener/zugewiesener Runden bleibt dabei unangetastet stehen.
+        const driverLaps = laps.filter(l => l.driverId === lap.driverId && l.ist);
+        const totalSec = driverLaps.reduce((sum, l) => sum + timeToSeconds(l.ist), 0);
+        const avgSollStr = secondsToTime(totalSec / driverLaps.length);
+
+        const nextLap = laps.slice(lapIdx + 1).find(l => l.driverId === lap.driverId && !l.ist);
+        if (nextLap) nextLap.soll = avgSollStr;
     });
 }
 
@@ -422,7 +437,6 @@ function renderMasterData() {
 
 function renderLaps() {
     const now = Date.now();
-    const stats = getDriverAverages();
     window.nextDrivers = [];
 
     TEAMS.forEach(team => {
@@ -435,14 +449,11 @@ function renderLaps() {
 
         data.laps[team].forEach((lap, index) => {
             const driver = data.drivers.find(d => d.id === lap.driverId);
-            const driverStat = driver ? stats[driver.id] : null;
-            const avgSollStr = driverStat && driverStat.count > 0
-                ? secondsToTime(driverStat.totalSec / driverStat.count)
-                : null;
-            // SOLL-Zeit ist immer die bisherige Durchschnitts-IST-Zeit des Fahrers, auch fuer bereits
-            // gefahrene Runden (bleibt nicht auf der statischen System-SOLL-Zeit stehen). Nur solange
-            // noch keine einzige Runde erfasst wurde, dient die statische Vorgabe als Startwert.
-            const defaultSollStr = avgSollStr || (driver ? driver.soll : '00:00');
+            // Statische SOLL-Zeit aus der Fahrerverwaltung ist nur der Startwert fuer die allererste
+            // Runde eines Fahrers. Fuer alle folgenden Runden wird lap.soll beim Eintragen der IST-Zeit
+            // der Vorrunde automatisch auf den dann aktuellen Durchschnitt gesetzt (siehe updateLapIst)
+            // und bleibt danach fest stehen.
+            const defaultSollStr = driver ? driver.soll : '00:00';
             const sollStr = lap.soll || defaultSollStr;
             const sollSec = timeToSeconds(sollStr);
             const istSec = timeToSeconds(lap.ist);
