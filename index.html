@@ -306,6 +306,9 @@
         .row-cutoff { background-color: #fff3f3; }
         .row-cutoff td { color: var(--avia-red-dark); }
 
+        .row-current { background-color: rgba(46, 204, 113, 0.12); }
+        .row-current td { font-weight: bold; }
+
         input[type="text"], input[type="date"], input[type="time"], input[type="number"] {
             padding: 10px 12px;
             border: 1px solid var(--border-color);
@@ -438,12 +441,7 @@
     <div id="driver-ticker" class="ticker-bar hidden"></div>
 
     <div class="container">
-        <div class="toolbar admin-only">
-            <div style="display: flex; gap: 10px;">
-                <button class="btn primary" onclick="exportData()">💾 Stand Speichern</button>
-                <input type="file" id="import-file" accept=".json" onchange="importData(event)">
-                <label for="import-file" class="btn">📂 Stand Laden</label>
-            </div>
+        <div class="toolbar admin-only" style="justify-content: flex-end;">
             <div>
                 <button class="btn" onclick="resetData()" style="color: var(--danger); border-color: var(--danger);">⚠️ Reset</button>
             </div>
@@ -556,6 +554,12 @@
                         <input type="time" id="config-start-time" onchange="updateConfig('startTime', this.value)" style="width: 120px;">
                         <label style="margin-left: 20px;">Ticker Vorwarnzeit (Min):</label>
                         <input type="number" id="config-warning-min" min="1" max="60" onchange="updateConfig('warningMinutes', this.value)" style="width: 70px;">
+                    </div>
+                    <div class="form-group" style="flex-wrap: wrap;">
+                        <label>Cut-Off Datum:</label>
+                        <input type="date" id="config-cutoff-date" onchange="updateConfig('cutoffDate', this.value)">
+                        <label style="margin-left: 10px;">Uhrzeit:</label>
+                        <input type="time" id="config-cutoff-time" onchange="updateConfig('cutoffTime', this.value)" style="width: 120px;">
                     </div>
                 </div>
 

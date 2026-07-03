@@ -58,9 +58,12 @@ auth.onAuthStateChanged(user => {
     document.body.classList.toggle('view-only', !window.isAdminMode);
 
     if (window.isAdminMode) {
-        // Falls die DB noch leer ist (erster Start), lokalen Default-Stand einmalig seeden
+        // Falls die DB noch leer ist (erster Start / nach Reset), einmalig vollstaendigen Default-Stand seeden.
+        // Bewusst NICHT die globale `data`-Variable verwenden: die kann beim Login noch den
+        // initialen leeren Platzhalter enthalten, falls der Auth-Listener vor dem ersten
+        // Datenbank-Snapshot feuert (Race Condition, hat schon zu leeren Runden gefuehrt).
         database.ref('raceData').once('value').then(snapshot => {
-            if (!snapshot.exists()) database.ref('raceData').set(data);
+            if (!snapshot.exists()) database.ref('raceData').set(buildFullDefaultData());
         });
     }
 
@@ -73,11 +76,12 @@ function getRaceStart() {
 }
 
 function getRaceCutoff() {
-    if (!data.config) return new Date('2026-07-19T12:14:59').getTime();
-    const start = new Date(`${data.config.startDate}T${data.config.startTime}:00`);
-    start.setDate(start.getDate() + 1);
-    start.setHours(12, 14, 59, 0);
-    return start.getTime();
+    // Cut-Off wird bewusst unabhaengig von der Startzeit manuell konfiguriert (eigenes Datum/Uhrzeit-Feld),
+    // damit eine Aenderung der Startzeit nicht automatisch die Cut-Off-Zeit mitverschiebt.
+    if (data.config && data.config.cutoffDate && data.config.cutoffTime) {
+        return new Date(`${data.config.cutoffDate}T${data.config.cutoffTime}:00`).getTime();
+    }
+    return new Date('2026-07-19T12:15:00').getTime();
 }
 
 // --- STATE ---
@@ -86,6 +90,8 @@ function getDefaultData() {
         config: {
             startDate: '2026-07-18',
             startTime: '12:55',
+            cutoffDate: '2026-07-19',
+            cutoffTime: '12:15',
             warningMinutes: 15
         },
         drivers: [
@@ -122,6 +128,19 @@ function getDefaultData() {
     };
 }
 
+// Vollstaendiger Default-Stand inkl. 34 vorbefuellter Runden pro Team.
+// Als eigene Funktion (statt sich auf die globale `data`-Variable zu verlassen), damit das Seeden
+// einer leeren Datenbank nicht von Ladereihenfolge/Timing zwischen Auth- und DB-Listener abhaengt.
+function buildFullDefaultData() {
+    const d = getDefaultData();
+    TEAMS.forEach(t => {
+        while (d.laps[t].length < 34) {
+            d.laps[t].push({ id: generateId(), driverId: autoSelectNextDriver(d, t), ist: '' });
+        }
+    });
+    return d;
+}
+
 let data = getDefaultData();
 
 // --- HELPERS ---
@@ -151,6 +170,13 @@ function formatDateTime(ms) {
     const h = d.getHours().toString().padStart(2, '0');
     const m = d.getMinutes().toString().padStart(2, '0');
     return `${day} ${h}:${m}`;
+}
+
+function formatTime(ms) {
+    const d = new Date(ms);
+    const h = d.getHours().toString().padStart(2, '0');
+    const m = d.getMinutes().toString().padStart(2, '0');
+    return `${h}:${m}`;
 }
 
 // --- FIREBASE WRITE HELPER (Transaction statt full overwrite -> kein Lost Update) ---
@@ -242,6 +268,10 @@ function updateLapIst(team, lapId, istValue) {
 }
 
 function applyRotation(team) {
+    if (!data.laps[team] || data.laps[team].length === 0) {
+        alert('Für dieses Team sind noch keine Runden angelegt. Bitte zuerst über "+ Runde hinzufügen" in der Planungstabelle Runden anlegen.');
+        return;
+    }
     if (!confirm('Achtung: Dies überschreibt alle Fahrerzuweisungen in der Planungstabelle für dieses Team mit der neuen Reihenfolge. Fortfahren?')) return;
 
     runTransaction(d => {
@@ -348,12 +378,18 @@ function renderMasterData() {
         const sd = document.getElementById('config-start-date');
         const st = document.getElementById('config-start-time');
         const wm = document.getElementById('config-warning-min');
+        const cd = document.getElementById('config-cutoff-date');
+        const ct = document.getElementById('config-cutoff-time');
         sd.value = data.config.startDate;
         sd.disabled = disableProp;
         st.value = data.config.startTime;
         st.disabled = disableProp;
         wm.value = data.config.warningMinutes;
         wm.disabled = disableProp;
+        cd.value = data.config.cutoffDate || '';
+        cd.disabled = disableProp;
+        ct.value = data.config.cutoffTime || '';
+        ct.disabled = disableProp;
     }
 
     const stats = getDriverAverages();
@@ -403,20 +439,23 @@ function renderLaps() {
             const avgSollStr = driverStat && driverStat.count > 0
                 ? secondsToTime(driverStat.totalSec / driverStat.count)
                 : null;
-            // Noch offene Runden planen mit der bisherigen Durchschnitts-IST-Zeit des Fahrers statt der statischen SOLL-Zeit.
-            // Bereits gefahrene Runden bleiben gegen die feste SOLL-Zeit verglichen (Differenz-Spalte bleibt stabil).
-            const defaultSollStr = !lap.ist && avgSollStr ? avgSollStr : (driver ? driver.soll : '00:00');
+            // SOLL-Zeit ist immer die bisherige Durchschnitts-IST-Zeit des Fahrers, auch fuer bereits
+            // gefahrene Runden (bleibt nicht auf der statischen System-SOLL-Zeit stehen). Nur solange
+            // noch keine einzige Runde erfasst wurde, dient die statische Vorgabe als Startwert.
+            const defaultSollStr = avgSollStr || (driver ? driver.soll : '00:00');
             const sollStr = lap.soll || defaultSollStr;
             const sollSec = timeToSeconds(sollStr);
             const istSec = timeToSeconds(lap.ist);
 
+            let isCurrentLap = false;
             if (!lap.ist && !foundNext) {
                 foundNext = true;
+                isCurrentLap = currentStartTime <= now;
                 window.nextDrivers.push({
                     team: team,
                     driverName: driver ? driver.name : 'Unbekannt',
                     startTime: currentStartTime,
-                    hasStarted: currentStartTime <= now
+                    hasStarted: isCurrentLap
                 });
             }
 
@@ -438,10 +477,11 @@ function renderLaps() {
                 teamDrivers.map(d => `<option value="${d.id}" ${d.id === lap.driverId ? 'selected' : ''}>${escapeHtml(d.name)}</option>`).join('');
 
             const disabledAttr = window.isAdminMode ? '' : 'disabled';
+            const rowClass = isCurrentLap ? 'row-current' : (isCutoff ? 'row-cutoff' : '');
             html += `
-                <tr class="${isCutoff ? 'row-cutoff' : ''}">
+                <tr class="${rowClass}">
                     <td>${index + 1}</td>
-                    <td><select onchange="updateLapDriver('${team}', '${lap.id}', this.value)" ${disabledAttr}>${options}</select></td>
+                    <td>${isCurrentLap ? '🚴 ' : ''}<select onchange="updateLapDriver('${team}', '${lap.id}', this.value)" ${disabledAttr}>${options}</select></td>
                     <td><strong>${formatDateTime(currentStartTime)}</strong></td>
                     <td><input type="text" value="${escapeHtml(lap.soll || sollStr)}" placeholder="${escapeHtml(defaultSollStr)}" onchange="updateLapSoll('${team}', '${lap.id}', this.value)" style="width:70px" ${disabledAttr}></td>
                     <td><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this.value)" ${disabledAttr}></td>
@@ -504,10 +544,10 @@ function updateTicker() {
         const diffMin = Math.floor(diffMs / 60000);
         const teamName = nd.team.toUpperCase();
 
-        if (diffMin >= 0 && diffMin <= warnMin) {
-            currentWarnings.push(`⚠️ ${teamName}: ${escapeHtml(nd.driverName)} startet in ${diffMin} Min!`);
-        } else if (diffMin < 0 && diffMin >= -15) {
-            currentWarnings.push(`🚨 ${teamName}: ${escapeHtml(nd.driverName)} ist ${Math.abs(diffMin)} Min überfällig!`);
+        // Nur im Fenster (0, warnMin] anzeigen: bei Erreichen der Startzeit (0) ausblenden,
+        // eine "überfällig"-Meldung gibt es bewusst nicht mehr.
+        if (diffMin > 0 && diffMin <= warnMin) {
+            currentWarnings.push(`⚠️ ${teamName}: ${escapeHtml(nd.driverName)} startet um ${formatTime(nd.startTime)} Uhr (in ${diffMin} Min)`);
         }
     });
 
@@ -609,12 +649,7 @@ function loadFromFirebase() {
             renderAll();
         } else {
             // Firebase leer -> lokale Defaults + 34 Runden aufbauen (Upload erfolgt erst beim Admin-Login)
-            data = getDefaultData();
-            TEAMS.forEach(t => {
-                while (data.laps[t].length < 34) {
-                    data.laps[t].push({ id: generateId(), driverId: autoSelectNextDriver(data, t), ist: '' });
-                }
-            });
+            data = buildFullDefaultData();
             renderAll();
         }
     });
@@ -629,57 +664,6 @@ function resetData() {
     database.ref('backups/' + Date.now()).set(data)
         .then(() => database.ref('raceData').remove())
         .catch(() => alert('Fehler beim Zurücksetzen.'));
-}
-
-function exportData() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "avia_24h_planung_" + new Date().getTime() + ".json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-}
-
-function isValidRaceData(obj) {
-    if (!obj || !Array.isArray(obj.drivers) || typeof obj.laps !== 'object' || obj.laps === null) return false;
-    const driversOk = obj.drivers.every(d =>
-        d && typeof d.id === 'string' && typeof d.team === 'string' &&
-        typeof d.name === 'string' && typeof d.soll === 'string'
-    );
-    if (!driversOk) return false;
-
-    return TEAMS.every(t => Array.isArray(obj.laps[t]) && obj.laps[t].every(l =>
-        l && typeof l.id === 'string' && typeof l.driverId === 'string' && typeof l.ist === 'string'
-    ));
-}
-
-function importData(event) {
-    if (!window.isAdminMode) {
-        alert('Nur im Admin-Modus möglich.');
-        event.target.value = '';
-        return;
-    }
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function (e) {
-        try {
-            const imported = JSON.parse(e.target.result);
-            if (isValidRaceData(imported)) {
-                database.ref('backups/' + Date.now()).set(data)
-                    .then(() => database.ref('raceData').set(imported))
-                    .then(() => alert('Daten erfolgreich für alle geladen!'))
-                    .catch(() => alert('Fehler beim Speichern.'));
-            } else {
-                alert('Ungültige Datei-Struktur.');
-            }
-        } catch (err) {
-            alert('Fehler beim Lesen der Datei.');
-        }
-        event.target.value = '';
-    };
-    reader.readAsText(file);
 }
 
 // --- INIT ---
