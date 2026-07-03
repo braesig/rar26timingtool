@@ -19,6 +19,7 @@ const auth = firebase.auth();
 // --- GLOBAL STATE ---
 window.isAdminMode = false;
 window.nextDrivers = [];
+window.currentRiders = [];
 
 // --- SECURITY HELPER ---
 function escapeHtml(str) {
@@ -438,6 +439,7 @@ function renderMasterData() {
 function renderLaps() {
     const now = Date.now();
     window.nextDrivers = [];
+    window.currentRiders = [];
 
     TEAMS.forEach(team => {
         const tbody = document.getElementById(`tbody-${team}`);
@@ -457,23 +459,29 @@ function renderLaps() {
             const sollStr = lap.soll || defaultSollStr;
             const sollSec = timeToSeconds(sollStr);
             const istSec = timeToSeconds(lap.ist);
+            const durationSec = istSec > 0 ? istSec : sollSec;
 
-            let isCurrentLap = false;
-            if (!lap.ist && !foundNext) {
+            const lapStart = currentStartTime;
+            const lapEnd = lapStart + durationSec * 1000;
+            // "Aktuell auf der Strecke" wird anhand der verstrichenen Zeit ermittelt (nicht anhand
+            // fehlender IST-Zeit) - sonst bliebe Runde 1 fuer immer "aktuell", solange niemand die
+            // IST-Zeit eintraegt, obwohl laengst die naechste Runde faellig waere.
+            const isCurrentLap = now >= lapStart && now < lapEnd;
+            if (isCurrentLap) {
+                window.currentRiders.push({ team, driverName: driver ? driver.name : 'Unbekannt' });
+            }
+
+            if (!foundNext && lapStart > now) {
                 foundNext = true;
-                isCurrentLap = currentStartTime <= now;
                 window.nextDrivers.push({
                     team: team,
                     driverName: driver ? driver.name : 'Unbekannt',
-                    startTime: currentStartTime,
-                    hasStarted: isCurrentLap
+                    startTime: lapStart
                 });
             }
 
-            const durationSec = istSec > 0 ? istSec : sollSec;
-
             // Check Cutoff
-            const isCutoff = currentStartTime > getRaceCutoff();
+            const isCutoff = lapStart > getRaceCutoff();
 
             // Calculate Diff
             let diffHtml = '-';
@@ -493,7 +501,7 @@ function renderLaps() {
                 <tr class="${rowClass}">
                     <td>${index + 1}</td>
                     <td>${isCurrentLap ? '🚴 ' : ''}<select onchange="updateLapDriver('${team}', '${lap.id}', this.value)" ${disabledAttr}>${options}</select></td>
-                    <td><strong>${formatDateTime(currentStartTime)}</strong></td>
+                    <td><strong>${formatDateTime(lapStart)}</strong></td>
                     <td><input type="text" value="${escapeHtml(lap.soll || sollStr)}" placeholder="${escapeHtml(defaultSollStr)}" onchange="updateLapSoll('${team}', '${lap.id}', this.value)" style="width:70px" ${disabledAttr}></td>
                     <td><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this.value)" ${disabledAttr}></td>
                     <td>${diffHtml}</td>
@@ -505,7 +513,7 @@ function renderLaps() {
             `;
 
             // Advance time
-            currentStartTime += durationSec * 1000;
+            currentStartTime = lapEnd;
         });
 
         // Cut-Off Preview for the NEXT (potential) lap
@@ -591,7 +599,7 @@ setInterval(() => {
 function renderCurrentRidersBar() {
     const bar = document.getElementById('current-riders-bar');
     if (!bar) return;
-    const current = window.nextDrivers.filter(nd => nd.hasStarted);
+    const current = window.currentRiders;
 
     if (current.length === 0) {
         bar.classList.add('hidden');
