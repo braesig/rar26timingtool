@@ -180,13 +180,6 @@
         }
         #connection-banner { background-color: var(--danger); color: #fff; }
         #current-riders-bar { background-color: var(--success); color: #fff; }
-        #sound-hint {
-            background-color: #333;
-            color: #fff;
-            font-size: 0.85rem;
-            font-weight: normal;
-            cursor: pointer;
-        }
 
         @keyframes pulse {
             from { transform: scale(1); }
@@ -391,6 +384,8 @@
 
         @media (max-width: 1024px) {
             header { flex-direction: column; gap: 10px; text-align: center; padding: 1rem; }
+            header .header-title { order: 1; }
+            header .cutoff-wrapper { order: 2; justify-content: center; }
             .toolbar { flex-direction: column; }
             .toolbar > div { flex-direction: column; width: 100%; gap: 10px !important; }
             .btn { width: 100%; justify-content: center; }
@@ -421,7 +416,7 @@
 <body class="view-only">
 
     <header>
-        <div style="flex: 1; display:flex;">
+        <div class="cutoff-wrapper" style="flex: 1; display:flex;">
             <div id="cutoff-indicator">--:--:--</div>
         </div>
         <div class="header-title" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); text-align: center; flex: 1; white-space: nowrap;">
@@ -440,7 +435,6 @@
     </header>
     <div id="connection-banner" class="info-bar hidden">⚠️ Keine Verbindung – Daten evtl. veraltet</div>
     <div id="current-riders-bar" class="info-bar hidden"></div>
-    <div id="sound-hint" class="info-bar" onclick="this.classList.add('hidden')">🔈 Für Alarm-Sound bitte einmal irgendwo auf die Seite tippen</div>
     <div id="driver-ticker" class="ticker-bar hidden"></div>
 
     <div class="container">

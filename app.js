@@ -493,7 +493,6 @@ function updateConfig(key, value) {
 // --- TICKER (Warnungen) ---
 let currentWarnings = [];
 let warningIndex = 0;
-let lastWarningsKey = '';
 
 function updateTicker() {
     const now = new Date().getTime();
@@ -511,13 +510,6 @@ function updateTicker() {
             currentWarnings.push(`🚨 ${teamName}: ${escapeHtml(nd.driverName)} ist ${Math.abs(diffMin)} Min überfällig!`);
         }
     });
-
-    const key = currentWarnings.join('|');
-    if (key !== '' && key !== lastWarningsKey) {
-        playAlertBeep();
-        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    }
-    lastWarningsKey = key;
 
     renderTickerDisplay();
     renderCurrentRidersBar();
@@ -576,31 +568,6 @@ function updateCutoffCountdown() {
         ? `Cut-Off überschritten seit ${h}:${m}:${s}`
         : `Cut-Off in ${h}:${m}:${s}`;
     el.classList.toggle('danger', diffMs < 15 * 60 * 1000);
-}
-
-// --- Alarm-Ton (Web Audio, kein Asset noetig) ---
-let audioCtx = null;
-
-function unlockAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const hint = document.getElementById('sound-hint');
-    if (hint) hint.classList.add('hidden');
-}
-document.addEventListener('click', unlockAudio, { once: true });
-document.addEventListener('touchstart', unlockAudio, { once: true });
-
-function playAlertBeep() {
-    if (!audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = 880;
-    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-    osc.connect(gain).connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.4);
 }
 
 // --- Screen Wake Lock (Handy soll waehrend des Renntags nicht einschlafen) ---
