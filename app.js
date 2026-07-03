@@ -386,6 +386,7 @@ function renderMasterData() {
 
 function renderLaps() {
     const now = Date.now();
+    const stats = getDriverAverages();
     window.nextDrivers = [];
 
     TEAMS.forEach(team => {
@@ -398,7 +399,13 @@ function renderLaps() {
 
         data.laps[team].forEach((lap, index) => {
             const driver = data.drivers.find(d => d.id === lap.driverId);
-            const defaultSollStr = driver ? driver.soll : '00:00';
+            const driverStat = driver ? stats[driver.id] : null;
+            const avgSollStr = driverStat && driverStat.count > 0
+                ? secondsToTime(driverStat.totalSec / driverStat.count)
+                : null;
+            // Noch offene Runden planen mit der bisherigen Durchschnitts-IST-Zeit des Fahrers statt der statischen SOLL-Zeit.
+            // Bereits gefahrene Runden bleiben gegen die feste SOLL-Zeit verglichen (Differenz-Spalte bleibt stabil).
+            const defaultSollStr = !lap.ist && avgSollStr ? avgSollStr : (driver ? driver.soll : '00:00');
             const sollStr = lap.soll || defaultSollStr;
             const sollSec = timeToSeconds(sollStr);
             const istSec = timeToSeconds(lap.ist);
