@@ -181,7 +181,7 @@ function formatTime(ms) {
 
 // --- FIREBASE WRITE HELPER (Transaction statt full overwrite -> kein Lost Update) ---
 function runTransaction(mutator) {
-    database.ref('raceData').transaction(current => {
+    return database.ref('raceData').transaction(current => {
         if (!current) current = getDefaultData();
         mutator(current);
         return current;
@@ -656,13 +656,20 @@ function loadFromFirebase() {
 }
 
 function resetData() {
-    if (!confirm('ACHTUNG: Alle Daten für ALLE Nutzer in Echtzeit löschen? Dies kann nicht rückgängig gemacht werden.')) return;
+    if (!confirm('Achtung: Alle Rundenzeiten und -zuweisungen für ALLE Nutzer in Echtzeit löschen (Einstellungen und Fahrerliste bleiben erhalten)? Dies kann nicht rückgängig gemacht werden.')) return;
     if (!window.isAdminMode) {
         alert('Nur im Admin-Modus möglich.');
         return;
     }
     database.ref('backups/' + Date.now()).set(data)
-        .then(() => database.ref('raceData').remove())
+        .then(() => runTransaction(d => {
+            TEAMS.forEach(t => {
+                d.laps[t] = [];
+                while (d.laps[t].length < 34) {
+                    d.laps[t].push({ id: generateId(), driverId: autoSelectNextDriver(d, t), ist: '' });
+                }
+            });
+        }))
         .catch(() => alert('Fehler beim Zurücksetzen.'));
 }
 
