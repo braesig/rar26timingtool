@@ -170,7 +170,9 @@ function formatDateTime(ms) {
     const day = days[d.getDay()];
     const h = d.getHours().toString().padStart(2, '0');
     const m = d.getMinutes().toString().padStart(2, '0');
-    return `${day} ${h}:${m}`;
+    // Wochentag steckt in einem eigenen Span, damit er auf schmalen Bildschirmen per CSS
+    // ausgeblendet werden kann (Tabelle passt dann ohne horizontales Scrollen aufs iPhone).
+    return `<span class="weekday-label">${day} </span>${h}:${m}`;
 }
 
 function formatTime(ms) {
@@ -328,50 +330,21 @@ function resetLapTimes(team, lapId) {
     });
 }
 
-let draggedDriverId = null;
+// Reihenfolge per Pfeil-Buttons aendern (statt Drag&Drop, das auf Touch-Geraeten nicht funktioniert).
+// direction: -1 = nach oben, +1 = nach unten.
+function moveDriver(id, direction) {
+    runTransaction(d => {
+        const driver = d.drivers.find(x => x.id === id);
+        if (!driver) return;
+        const teamDrivers = d.drivers.filter(x => x.team === driver.team);
+        const idx = teamDrivers.findIndex(x => x.id === id);
+        const swapIdx = idx + direction;
+        if (swapIdx < 0 || swapIdx >= teamDrivers.length) return;
 
-function handleDragStart(e, id) {
-    draggedDriverId = id;
-    e.target.style.opacity = '0.5';
-    e.dataTransfer.effectAllowed = 'move';
-}
-
-function handleDragEnd(e) {
-    e.target.style.opacity = '1';
-    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-}
-
-function handleDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    return false;
-}
-
-function handleDragEnter(e) {
-    e.preventDefault();
-    e.currentTarget.classList.add('drag-over');
-}
-
-function handleDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
-}
-
-function handleDrop(e, targetId) {
-    e.stopPropagation();
-    e.currentTarget.classList.remove('drag-over');
-
-    if (draggedDriverId && draggedDriverId !== targetId) {
-        runTransaction(d => {
-            const sourceIdx = d.drivers.findIndex(x => x.id === draggedDriverId);
-            const targetIdx = d.drivers.findIndex(x => x.id === targetId);
-
-            if (sourceIdx !== -1 && targetIdx !== -1 && d.drivers[sourceIdx].team === d.drivers[targetIdx].team) {
-                const [movedDriver] = d.drivers.splice(sourceIdx, 1);
-                d.drivers.splice(targetIdx, 0, movedDriver);
-            }
-        });
-    }
-    return false;
+        const globalIdxA = d.drivers.indexOf(teamDrivers[idx]);
+        const globalIdxB = d.drivers.indexOf(teamDrivers[swapIdx]);
+        [d.drivers[globalIdxA], d.drivers[globalIdxB]] = [d.drivers[globalIdxB], d.drivers[globalIdxA]];
+    });
 }
 
 // --- RENDER LOGIC ---
@@ -413,21 +386,19 @@ function renderMasterData() {
         const tbody = document.getElementById(`drivers-${team}`);
         const teamDrivers = data.drivers.filter(d => d.team === team);
 
-        tbody.innerHTML = teamDrivers.map(d => {
+        tbody.innerHTML = teamDrivers.map((d, idx) => {
             const avgStr = stats[d.id].count > 0 ? secondsToTime(stats[d.id].totalSec / stats[d.id].count) : '-';
             const disabledAttr = window.isAdminMode ? '' : 'disabled';
+            const isFirst = idx === 0;
+            const isLast = idx === teamDrivers.length - 1;
             return `
-                <tr draggable="true"
-                    ondragstart="handleDragStart(event, '${d.id}')"
-                    ondragend="handleDragEnd(event)"
-                    ondragover="handleDragOver(event)"
-                    ondragenter="handleDragEnter(event)"
-                    ondragleave="handleDragLeave(event)"
-                    ondrop="handleDrop(event, '${d.id}')">
-                    <td><span class="drag-handle admin-only" title="Ziehen zum Verschieben">☰</span><strong>${escapeHtml(d.name)}</strong></td>
+                <tr>
+                    <td><strong>${escapeHtml(d.name)}</strong></td>
                     <td><input type="text" value="${escapeHtml(d.soll)}" onchange="updateDriverSoll('${d.id}', this.value)" style="width:70px" ${disabledAttr}></td>
                     <td>${avgStr} <small>(${stats[d.id].count} Rnd)</small></td>
-                    <td style="white-space: nowrap;">
+                    <td class="col-action" style="white-space: nowrap;">
+                        <button class="action-btn admin-only" onclick="moveDriver('${d.id}', -1)" title="Nach oben verschieben" style="color: var(--text-muted);" ${isFirst ? 'disabled' : ''}>▲</button>
+                        <button class="action-btn admin-only" onclick="moveDriver('${d.id}', 1)" title="Nach unten verschieben" style="color: var(--text-muted);" ${isLast ? 'disabled' : ''}>▼</button>
                         <button class="action-btn admin-only" onclick="deleteDriver('${d.id}')" title="Fahrer löschen" style="margin-left: 5px;">🗑</button>
                     </td>
                 </tr>
@@ -483,12 +454,13 @@ function renderLaps() {
             // Check Cutoff
             const isCutoff = lapStart > getRaceCutoff();
 
-            // Calculate Diff
-            let diffHtml = '-';
+            // Calculate Diff - wird direkt unter der IST-Zeit angezeigt statt in einer eigenen
+            // Spalte, damit die Tabelle auf dem Handy ohne horizontales Scrollen passt.
+            let diffHtml = '';
             if (istSec > 0 && sollSec > 0) {
                 const diffSec = istSec - sollSec;
                 const signClass = diffSec > 0 ? 'diff-pos' : 'diff-neg';
-                diffHtml = `<span class="${signClass}">${secondsToTime(diffSec, true)}</span>`;
+                diffHtml = `<br><span class="diff-badge ${signClass}">${secondsToTime(diffSec, true)}</span>`;
             }
 
             // Driver options
@@ -503,9 +475,8 @@ function renderLaps() {
                     <td>${isCurrentLap ? '🚴 ' : ''}<select onchange="updateLapDriver('${team}', '${lap.id}', this.value)" ${disabledAttr}>${options}</select></td>
                     <td><strong>${formatDateTime(lapStart)}</strong></td>
                     <td><input type="text" value="${escapeHtml(lap.soll || sollStr)}" placeholder="${escapeHtml(defaultSollStr)}" onchange="updateLapSoll('${team}', '${lap.id}', this.value)" style="width:70px" ${disabledAttr}></td>
-                    <td><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this.value)" ${disabledAttr}></td>
-                    <td>${diffHtml}</td>
-                    <td>
+                    <td><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this.value)" ${disabledAttr}>${diffHtml}</td>
+                    <td class="col-action">
                         <button class="action-btn admin-only" onclick="resetLapTimes('${team}', '${lap.id}')" title="Zeiten dieser Runde leeren" style="color: var(--warning); font-size: 1.1rem; margin-right: 5px;">🔄</button>
                         <button class="action-btn admin-only" onclick="deleteLap('${team}', '${lap.id}')" title="Ganze Runde löschen">🗑</button>
                     </td>
@@ -532,7 +503,7 @@ function renderLaps() {
 
             html += `
                 <tr style="background-color: ${bgColor}; color: ${textColor}; font-weight: bold; border-top: 2px solid ${textColor};">
-                    <td colspan="7" style="text-align: center; padding: 12px; font-size: 0.95rem;">
+                    <td colspan="6" style="text-align: center; padding: 12px; font-size: 0.95rem;">
                         ${icon} ${msg}
                     </td>
                 </tr>
