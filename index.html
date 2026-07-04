@@ -2,7 +2,11 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#e3000f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>AVIA Racing - 24h Planer</title>
 
     <!-- Firebase SDK (Compat Version for no-build setup) -->
@@ -33,7 +37,7 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             line-height: 1.6;
-            padding-bottom: 50px;
+            padding-bottom: max(50px, env(safe-area-inset-bottom));
         }
 
         /* View-Only Mode Styles */
@@ -113,7 +117,7 @@
             background-color: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             color: var(--text-main);
-            padding: 12px 2rem;
+            padding: max(12px, env(safe-area-inset-top)) 2rem 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -139,6 +143,22 @@
             display: flex;
             align-items: center;
             gap: 20px;
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+            text-align: center;
+            flex: 1;
+            white-space: nowrap;
+        }
+
+        .header-logo {
+            height: 32px;
+            vertical-align: middle;
+            margin-right: 10px;
+            border-radius: 4px;
         }
 
         #cutoff-indicator {
@@ -387,7 +407,8 @@
 
         @media (max-width: 1024px) {
             header { flex-direction: column; gap: 10px; text-align: center; padding: 1rem; }
-            header .header-title { order: 1; }
+            header .header-title { order: 1; font-size: 1.1rem; white-space: normal; }
+            header .header-logo { height: 24px; margin-right: 6px; }
             header .cutoff-wrapper { order: 2; justify-content: center; }
             .toolbar { flex-direction: column; }
             .toolbar > div { flex-direction: column; width: 100%; gap: 10px !important; }
@@ -422,8 +443,8 @@
         <div class="cutoff-wrapper" style="flex: 1; display:flex;">
             <div id="cutoff-indicator">--:--:--</div>
         </div>
-        <div class="header-title" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main); text-align: center; flex: 1; white-space: nowrap;">
-            <img src="rad-am-ring-logo.jpg" alt="Rad am Ring" style="height: 32px; vertical-align: middle; margin-right: 10px; border-radius: 4px;">
+        <div class="header-title">
+            <img src="rad-am-ring-logo.jpg" alt="Rad am Ring" class="header-logo">
             Rad am Ring '26 Timing Tool
         </div>
         <div class="header-info desktop-only-toggle" style="display:flex; align-items:center; gap: 15px; flex: 1; justify-content: flex-end;">
@@ -453,7 +474,6 @@
                 <option value="team-avia1">AVIA I (Männer)</option>
                 <option value="team-avia2">AVIA II (Männer)</option>
                 <option value="team-frauen">AVIA Frauen</option>
-                <option value="master-data">⚙️ Fahrerverwaltung</option>
             </select>
         </div>
 
@@ -615,7 +635,7 @@
 
     <script src="app.js"></script>
     <footer style="margin-top: 40px; background: white; border-top: 1px solid var(--border-color); padding: 30px 20px;">
-        <div class="header-info mobile-only-toggle" style="align-items:center; gap: 15px; justify-content: center; margin-bottom: 30px;">
+        <div class="header-info mobile-only-toggle" style="align-items:center; gap: 15px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px;">
             <div class="toggle-switch-container">
                 <span class="toggle-label label-lese" style="opacity: 1;">Lese-Modus</span>
                 <label class="toggle-switch">
@@ -624,6 +644,7 @@
                 </label>
                 <span class="toggle-label label-admin" style="opacity: 0.5;">Admin</span>
             </div>
+            <button class="btn" onclick="switchTab('master-data')" style="width: auto; padding: 10px 20px;">⚙️ Fahrerverwaltung</button>
         </div>
         <div class="logo-container" style="display: flex; justify-content: center; align-items: center; gap: 50px; flex-wrap: wrap;">
             <img src="schulte-logo.jpg" alt="M. Schulte Söhne" class="logo-img" style="max-height: 50px; filter: grayscale(100%); opacity: 0.8; transition: 0.3s;" onmouseover="this.style.filter='none'; this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%)'; this.style.opacity='0.8'">
