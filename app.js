@@ -164,6 +164,18 @@ function secondsToTime(sec, showSign = false) {
     return `${sign}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
+// Prueft mm:ss / h:mm:ss Zeit-Eingaben: Minuten- und Sekundenanteil duerfen nicht groesser als 59 sein.
+// Leeres Feld ist erlaubt (nutzt dann den Standardwert).
+function isValidTimeStr(str) {
+    if (!str) return true;
+    const parts = str.split(':').map(p => parseInt(p, 10));
+    if (parts.some(isNaN)) return false;
+    if (parts.length === 1) return true;
+    if (parts.length === 2) return parts[1] >= 0 && parts[1] <= 59;
+    if (parts.length === 3) return parts[1] >= 0 && parts[1] <= 59 && parts[2] >= 0 && parts[2] <= 59;
+    return false;
+}
+
 function formatDateTime(ms) {
     const d = new Date(ms);
     const days = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
@@ -199,7 +211,7 @@ function addDriver(team) {
     let soll = sollInput.value.trim() || (team === 'frauen' ? '50:00' : '41:00');
 
     if (!name) return alert('Bitte Namen eingeben');
-    if (!soll.includes(':')) soll += ':00'; // Default to minutes if no colon
+    if (!isValidTimeStr(soll)) return alert('Ungültige Zeit: Sekunden/Minuten dürfen nicht größer als 59 sein (Format mm:ss).');
 
     runTransaction(d => {
         d.drivers.push({ id: generateId(), team, name, soll });
@@ -235,10 +247,17 @@ function getDriverAverages() {
     return stats;
 }
 
-function updateDriverSoll(id, newSoll) {
+function updateDriverSoll(id, inputEl) {
+    const value = inputEl.value.trim();
+    if (!isValidTimeStr(value)) {
+        alert('Ungültige Zeit: Sekunden dürfen nicht größer als 59 sein (Format mm:ss).');
+        const driver = data.drivers.find(x => x.id === id);
+        inputEl.value = driver ? driver.soll : '';
+        return;
+    }
     runTransaction(d => {
         const driver = d.drivers.find(x => x.id === id);
-        if (driver) driver.soll = newSoll;
+        if (driver) driver.soll = value;
     });
 }
 
@@ -263,7 +282,15 @@ function addLap(team) {
     });
 }
 
-function updateLapIst(team, lapId, istValue) {
+function updateLapIst(team, lapId, inputEl) {
+    const istValue = inputEl.value.trim();
+    if (!isValidTimeStr(istValue)) {
+        alert('Ungültige Zeit: Sekunden dürfen nicht größer als 59 sein (Format mm:ss).');
+        const lap = data.laps[team].find(l => l.id === lapId);
+        inputEl.value = lap ? lap.ist : '';
+        return;
+    }
+
     runTransaction(d => {
         const laps = d.laps[team];
         const lapIdx = laps.findIndex(l => l.id === lapId);
@@ -271,7 +298,7 @@ function updateLapIst(team, lapId, istValue) {
         const lap = laps[lapIdx];
         lap.ist = istValue;
 
-        if (!istValue) return; // Wert geloescht -> keine Weitergabe an die naechste Runde
+        if (!lap.ist) return; // Wert geloescht -> keine Weitergabe an die naechste Runde
 
         // Durchschnitt des Fahrers ueber alle bisher erfassten Runden (inkl. dieser) neu berechnen
         // und fest als SOLL-Zeit in dessen naechste noch offene Runde uebernehmen. Die SOLL-Zeit
@@ -309,10 +336,17 @@ function updateLapDriver(team, lapId, driverId) {
     });
 }
 
-function updateLapSoll(team, lapId, newSoll) {
+function updateLapSoll(team, lapId, inputEl) {
+    const value = inputEl.value.trim();
+    if (!isValidTimeStr(value)) {
+        alert('Ungültige Zeit: Sekunden dürfen nicht größer als 59 sein (Format mm:ss).');
+        const lap = data.laps[team].find(l => l.id === lapId);
+        inputEl.value = lap ? lap.soll : '';
+        return;
+    }
     runTransaction(d => {
         const lap = d.laps[team].find(l => l.id === lapId);
-        if (lap) lap.soll = newSoll;
+        if (lap) lap.soll = value;
     });
 }
 
@@ -394,7 +428,7 @@ function renderMasterData() {
             return `
                 <tr>
                     <td><strong>${escapeHtml(d.name)}</strong></td>
-                    <td><input type="text" value="${escapeHtml(d.soll)}" onchange="updateDriverSoll('${d.id}', this.value)" style="width:70px" ${disabledAttr}></td>
+                    <td><input type="text" value="${escapeHtml(d.soll)}" onchange="updateDriverSoll('${d.id}', this)" style="width:70px" ${disabledAttr}></td>
                     <td>${avgStr} <small>(${stats[d.id].count} Rnd)</small></td>
                     <td class="col-action" style="white-space: nowrap;">
                         <button class="action-btn admin-only" onclick="moveDriver('${d.id}', -1)" title="Nach oben verschieben" style="color: var(--text-muted);" ${isFirst ? 'disabled' : ''}>▲</button>
@@ -474,8 +508,8 @@ function renderLaps() {
                     <td>${index + 1}</td>
                     <td>${isCurrentLap ? '🚴 ' : ''}<select onchange="updateLapDriver('${team}', '${lap.id}', this.value)" ${disabledAttr}>${options}</select></td>
                     <td><strong>${formatDateTime(lapStart)}</strong></td>
-                    <td><input type="text" value="${escapeHtml(lap.soll || sollStr)}" placeholder="${escapeHtml(defaultSollStr)}" onchange="updateLapSoll('${team}', '${lap.id}', this.value)" style="width:70px" ${disabledAttr}></td>
-                    <td class="ist-cell"><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this.value)" ${disabledAttr}>${diffHtml}</td>
+                    <td><input type="text" value="${escapeHtml(lap.soll || sollStr)}" placeholder="${escapeHtml(defaultSollStr)}" onchange="updateLapSoll('${team}', '${lap.id}', this)" style="width:70px" ${disabledAttr}></td>
+                    <td class="ist-cell"><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this)" ${disabledAttr}>${diffHtml}</td>
                     <td class="col-action">
                         <button class="action-btn admin-only" onclick="resetLapTimes('${team}', '${lap.id}')" title="Zeiten dieser Runde leeren" style="color: var(--warning); font-size: 1.1rem; margin-right: 5px;">🔄</button>
                         <button class="action-btn admin-only" onclick="deleteLap('${team}', '${lap.id}')" title="Ganze Runde löschen">🗑</button>
