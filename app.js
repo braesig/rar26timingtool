@@ -460,7 +460,7 @@ function renderLaps() {
             if (istSec > 0 && sollSec > 0) {
                 const diffSec = istSec - sollSec;
                 const signClass = diffSec > 0 ? 'diff-pos' : 'diff-neg';
-                diffHtml = `<br><span class="diff-badge ${signClass}">${secondsToTime(diffSec, true)}</span>`;
+                diffHtml = `<span class="diff-badge ${signClass}">${secondsToTime(diffSec, true)}</span>`;
             }
 
             // Driver options
@@ -475,7 +475,7 @@ function renderLaps() {
                     <td>${isCurrentLap ? '🚴 ' : ''}<select onchange="updateLapDriver('${team}', '${lap.id}', this.value)" ${disabledAttr}>${options}</select></td>
                     <td><strong>${formatDateTime(lapStart)}</strong></td>
                     <td><input type="text" value="${escapeHtml(lap.soll || sollStr)}" placeholder="${escapeHtml(defaultSollStr)}" onchange="updateLapSoll('${team}', '${lap.id}', this.value)" style="width:70px" ${disabledAttr}></td>
-                    <td><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this.value)" ${disabledAttr}>${diffHtml}</td>
+                    <td class="ist-cell"><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this.value)" ${disabledAttr}>${diffHtml}</td>
                     <td class="col-action">
                         <button class="action-btn admin-only" onclick="resetLapTimes('${team}', '${lap.id}')" title="Zeiten dieser Runde leeren" style="color: var(--warning); font-size: 1.1rem; margin-right: 5px;">🔄</button>
                         <button class="action-btn admin-only" onclick="deleteLap('${team}', '${lap.id}')" title="Ganze Runde löschen">🗑</button>

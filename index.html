@@ -362,7 +362,17 @@
         
         .diff-pos { color: var(--danger); font-weight: bold; }
         .diff-neg { color: var(--success); font-weight: bold; }
-        .diff-badge { font-size: 0.8rem; }
+
+        .ist-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1px;
+        }
+        .diff-badge {
+            font-size: 0.75rem;
+            line-height: 1;
+        }
 
         .driver-grid {
             display: flex;
@@ -516,7 +526,7 @@
                                 <th><span class="th-full">Runde</span><span class="th-short">#</span></th>
                                 <th>Fahrer</th>
                                 <th><span class="th-full">Startzeit</span><span class="th-short">Start</span></th>
-                                <th><span class="th-full">SOLL-Zeit</span><span class="th-short">Soll</span></th>
+                                <th><span class="th-full">Plan-Zeit</span><span class="th-short">Plan</span></th>
                                 <th><span class="th-full">IST-Zeit (mm:ss)</span><span class="th-short">Ist</span></th>
                                 <th class="col-action">Aktion</th>
                             </tr>
@@ -541,7 +551,7 @@
                                 <th><span class="th-full">Runde</span><span class="th-short">#</span></th>
                                 <th>Fahrer</th>
                                 <th><span class="th-full">Startzeit</span><span class="th-short">Start</span></th>
-                                <th><span class="th-full">SOLL-Zeit</span><span class="th-short">Soll</span></th>
+                                <th><span class="th-full">Plan-Zeit</span><span class="th-short">Plan</span></th>
                                 <th><span class="th-full">IST-Zeit (mm:ss)</span><span class="th-short">Ist</span></th>
                                 <th class="col-action">Aktion</th>
                             </tr>
@@ -566,7 +576,7 @@
                                 <th><span class="th-full">Runde</span><span class="th-short">#</span></th>
                                 <th>Fahrer</th>
                                 <th><span class="th-full">Startzeit</span><span class="th-short">Start</span></th>
-                                <th><span class="th-full">SOLL-Zeit</span><span class="th-short">Soll</span></th>
+                                <th><span class="th-full">Plan-Zeit</span><span class="th-short">Plan</span></th>
                                 <th><span class="th-full">IST-Zeit (mm:ss)</span><span class="th-short">Ist</span></th>
                                 <th class="col-action">Aktion</th>
                             </tr>
@@ -620,7 +630,7 @@
                         <button class="btn" style="margin-left: auto; color: var(--text-muted);" onclick="applyRotation('avia1')" title="Übernimmt die aktuelle Reihenfolge für alle Runden in der Planungstabelle">🔄 Auf Plan anwenden</button>
                     </div>
                     <table>
-                        <thead><tr><th>Name</th><th>SOLL</th><th>ø IST</th><th class="col-action">Aktionen</th></tr></thead>
+                        <thead><tr><th>Name</th><th>Plan</th><th>ø IST</th><th class="col-action">Aktionen</th></tr></thead>
                         <tbody id="drivers-avia1"></tbody>
                     </table>
                 </div>
@@ -635,7 +645,7 @@
                         <button class="btn" style="margin-left: auto; color: var(--text-muted);" onclick="applyRotation('avia2')" title="Übernimmt die aktuelle Reihenfolge für alle Runden in der Planungstabelle">🔄 Auf Plan anwenden</button>
                     </div>
                     <table>
-                        <thead><tr><th>Name</th><th>SOLL</th><th>ø IST</th><th class="col-action">Aktionen</th></tr></thead>
+                        <thead><tr><th>Name</th><th>Plan</th><th>ø IST</th><th class="col-action">Aktionen</th></tr></thead>
                         <tbody id="drivers-avia2"></tbody>
                     </table>
                 </div>
@@ -650,7 +660,7 @@
                         <button class="btn" style="margin-left: auto; color: var(--text-muted);" onclick="applyRotation('frauen')" title="Übernimmt die aktuelle Reihenfolge für alle Runden in der Planungstabelle">🔄 Auf Plan anwenden</button>
                     </div>
                     <table>
-                        <thead><tr><th>Name</th><th>SOLL</th><th>ø IST</th><th class="col-action">Aktionen</th></tr></thead>
+                        <thead><tr><th>Name</th><th>Plan</th><th>ø IST</th><th class="col-action">Aktionen</th></tr></thead>
                         <tbody id="drivers-frauen"></tbody>
                     </table>
                 </div>
