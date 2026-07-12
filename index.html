@@ -301,9 +301,11 @@
         h2 { margin-bottom: 20px; color: var(--text-main); font-size: 1.4rem; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;}
 
         table {
-            width: 100%;
             border-collapse: collapse;
-            min-width: 800px;
+            /* Bewusst KEINE erzwungene volle Breite: sonst verteilt der Browser ungenutzten Platz
+               ungleichmaessig auf einzelne Spalten (grosse Luecken z.B. bei IST-Zeit). Die Tabelle
+               richtet sich stattdessen am tatsaechlichen Inhalt aus; .table-container faengt
+               Ueberlauf per horizontalem Scroll ab. */
         }
         th, td {
             padding: 16px 15px;
@@ -448,7 +450,7 @@
             .card { padding: 15px 10px; border-radius: 0; border-left: none; border-right: none; }
             
             .table-container { margin: 0 -10px; width: calc(100% + 20px); border-radius: 0; }
-            table { font-size: 0.85rem; min-width: 100%; }
+            table { font-size: 0.85rem; }
             th, td { padding: 4px 2px; }
             
             .form-group { flex-direction: column; align-items: stretch; gap: 10px; }
@@ -532,8 +534,8 @@
                                 <th><span class="th-full">Runde</span><span class="th-short">#</span></th>
                                 <th>Fahrer</th>
                                 <th><span class="th-full">Startzeit</span><span class="th-short">Start</span></th>
-                                <th><span class="th-full">Plan-Zeit</span><span class="th-short">Plan</span></th>
-                                <th><span class="th-full">IST-Zeit (mm:ss)</span><span class="th-short">Ist</span></th>
+                                <th><span class="th-full">Plan</span><span class="th-short">Plan</span></th>
+                                <th><span class="th-full">IST</span><span class="th-short">Ist</span></th>
                                 <th class="col-action">Aktion</th>
                             </tr>
                         </thead>
@@ -557,8 +559,8 @@
                                 <th><span class="th-full">Runde</span><span class="th-short">#</span></th>
                                 <th>Fahrer</th>
                                 <th><span class="th-full">Startzeit</span><span class="th-short">Start</span></th>
-                                <th><span class="th-full">Plan-Zeit</span><span class="th-short">Plan</span></th>
-                                <th><span class="th-full">IST-Zeit (mm:ss)</span><span class="th-short">Ist</span></th>
+                                <th><span class="th-full">Plan</span><span class="th-short">Plan</span></th>
+                                <th><span class="th-full">IST</span><span class="th-short">Ist</span></th>
                                 <th class="col-action">Aktion</th>
                             </tr>
                         </thead>
@@ -582,8 +584,8 @@
                                 <th><span class="th-full">Runde</span><span class="th-short">#</span></th>
                                 <th>Fahrer</th>
                                 <th><span class="th-full">Startzeit</span><span class="th-short">Start</span></th>
-                                <th><span class="th-full">Plan-Zeit</span><span class="th-short">Plan</span></th>
-                                <th><span class="th-full">IST-Zeit (mm:ss)</span><span class="th-short">Ist</span></th>
+                                <th><span class="th-full">Plan</span><span class="th-short">Plan</span></th>
+                                <th><span class="th-full">IST</span><span class="th-short">Ist</span></th>
                                 <th class="col-action">Aktion</th>
                             </tr>
                         </thead>

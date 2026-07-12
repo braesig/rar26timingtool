@@ -547,7 +547,7 @@ function renderLaps() {
                     <td>${isCurrentLap ? '🚴 ' : ''}<select onchange="updateLapDriver('${team}', '${lap.id}', this.value)" ${disabledAttr}>${options}</select></td>
                     <td><strong>${formatDateTime(lapStart)}</strong></td>
                     <td><input type="text" value="${escapeHtml(lap.soll || sollStr)}" placeholder="${escapeHtml(defaultSollStr)}" onchange="updateLapSoll('${team}', '${lap.id}', this)" style="width:70px" ${disabledAttr}></td>
-                    <td class="ist-cell"><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this)" ${disabledAttr}>${diffHtml}</td>
+                    <td><div class="ist-cell"><input type="text" value="${escapeHtml(lap.ist)}" placeholder="mm:ss" onchange="updateLapIst('${team}', '${lap.id}', this)" style="width:70px" ${disabledAttr}>${diffHtml}</div></td>
                     <td class="col-action">
                         <button class="action-btn admin-only" onclick="resetLapTimes('${team}', '${lap.id}')" title="Zeiten dieser Runde leeren" style="color: var(--warning); font-size: 1.1rem; margin-right: 5px;">🔄</button>
                         <button class="action-btn admin-only" onclick="deleteLap('${team}', '${lap.id}')" title="Ganze Runde löschen">🗑</button>
