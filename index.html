@@ -50,6 +50,11 @@
         body.view-only td.col-action {
             display: none !important;
         }
+        /* Verhindert, dass die beiden Aktions-Buttons in eine zweite Zeile umbrechen, wenn die
+           Spalte durch table-layout:auto mal knapper bemessen wird als die Buttons brauchen. */
+        td.col-action {
+            white-space: nowrap;
+        }
         body.view-only input:disabled, 
         body.view-only select:disabled {
             pointer-events: none;
