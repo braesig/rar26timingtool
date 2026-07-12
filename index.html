@@ -307,18 +307,19 @@
                richtet sich stattdessen am tatsaechlichen Inhalt aus; .table-container faengt
                Ueberlauf per horizontalem Scroll ab. */
         }
-        /* Rundenplanungs-Tabellen (in .table-container): volle Kartenbreite nutzen, aber die
-           schmalen Spalten auf ihre tatsaechlich benoetigte Breite fixieren, damit nur die
-           Fahrer-Spalte den uebrigen Platz aufnimmt - statt dass der Browser die Extra-Breite
-           wahllos auf IST/Plan/etc. verteilt. */
+        /* Rundenplanungs-Tabellen (in .table-container): volle Kartenbreite nutzen, Extra-Platz
+           aber gleichmaessig nach Bedarf auf alle Spalten verteilen (Prozent-Breiten) statt alles
+           in die Fahrer-Spalte zu stecken. */
         .table-container table {
             width: 100%;
+            table-layout: fixed;
         }
-        .table-container th:nth-child(1), .table-container td:nth-child(1) { width: 60px; }
-        .table-container th:nth-child(3), .table-container td:nth-child(3) { width: 110px; }
-        .table-container th:nth-child(4), .table-container td:nth-child(4) { width: 100px; }
-        .table-container th:nth-child(5), .table-container td:nth-child(5) { width: 100px; }
-        .table-container th:nth-child(6), .table-container td:nth-child(6) { width: 100px; }
+        .table-container th:nth-child(1), .table-container td:nth-child(1) { width: 6%; }
+        .table-container th:nth-child(2), .table-container td:nth-child(2) { width: 24%; }
+        .table-container th:nth-child(3), .table-container td:nth-child(3) { width: 17%; }
+        .table-container th:nth-child(4), .table-container td:nth-child(4) { width: 17%; }
+        .table-container th:nth-child(5), .table-container td:nth-child(5) { width: 18%; }
+        .table-container th:nth-child(6), .table-container td:nth-child(6) { width: 18%; }
         th, td {
             padding: 16px 15px;
             text-align: left;
@@ -382,15 +383,22 @@
         .diff-pos { color: var(--danger); font-weight: bold; }
         .diff-neg { color: var(--success); font-weight: bold; }
 
+        /* Differenz-Badge haengt "schwebend" unter dem IST-Feld (position:absolute), damit es
+           NICHT zur Zellenhoehe beitraegt - sonst ist die IST-Box in Runden mit Differenz hoeher
+           als die PLAN-Box daneben und die Zeilen wirken uneinheitlich. */
         .ist-cell {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1px;
+            position: relative;
+            display: inline-block;
         }
         .diff-badge {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: 1px;
             font-size: 0.75rem;
             line-height: 1;
+            white-space: nowrap;
         }
 
         .driver-grid {
@@ -482,8 +490,7 @@
             .th-full { display: none; }
             .th-short { display: inline; }
             th { letter-spacing: 0.5px; }
-            .ist-cell { gap: 0; }
-            .diff-badge { font-size: 0.72rem; margin-top: -2px; }
+            .diff-badge { font-size: 0.68rem; margin-top: 0; }
             
             .desktop-tabs { display: none !important; }
             .desktop-only-toggle { display: none !important; }
