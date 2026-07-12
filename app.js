@@ -72,17 +72,19 @@ auth.onAuthStateChanged(user => {
 });
 
 function getRaceStart() {
-    if (!data.config) return new Date('2026-07-18T12:55:00').getTime();
-    return new Date(`${data.config.startDate}T${data.config.startTime}:00`).getTime();
+    const fallback = new Date('2026-07-18T12:55:00').getTime();
+    if (!data.config || !data.config.startDate || !data.config.startTime) return fallback;
+    const t = new Date(`${data.config.startDate}T${data.config.startTime}:00`).getTime();
+    return isNaN(t) ? fallback : t; // leeres/geloeschtes Datumsfeld -> nicht mit NaN weiterrechnen
 }
 
 function getRaceCutoff() {
     // Cut-Off wird bewusst unabhaengig von der Startzeit manuell konfiguriert (eigenes Datum/Uhrzeit-Feld),
     // damit eine Aenderung der Startzeit nicht automatisch die Cut-Off-Zeit mitverschiebt.
-    if (data.config && data.config.cutoffDate && data.config.cutoffTime) {
-        return new Date(`${data.config.cutoffDate}T${data.config.cutoffTime}:00`).getTime();
-    }
-    return new Date('2026-07-19T12:15:00').getTime();
+    const fallback = new Date('2026-07-19T12:15:00').getTime();
+    if (!data.config || !data.config.cutoffDate || !data.config.cutoffTime) return fallback;
+    const t = new Date(`${data.config.cutoffDate}T${data.config.cutoffTime}:00`).getTime();
+    return isNaN(t) ? fallback : t;
 }
 
 // --- STATE ---
@@ -144,6 +146,20 @@ function buildFullDefaultData() {
 
 let data = getDefaultData();
 
+// Firebase speichert leere Arrays/Objekte NICHT (Keys verschwinden komplett). Wenn z.B. alle
+// Runden eines Teams geloescht wurden, fehlt data.laps[team] im naechsten Snapshot und jeder
+// Zugriff wuerde crashen. Daher nach jedem Laden und in jeder Transaction normalisieren.
+// Firebase kann Arrays auch als Objekte mit numerischen Keys liefern -> Object.values.
+function normalizeData(d) {
+    if (!d.config) d.config = getDefaultData().config;
+    if (!Array.isArray(d.drivers)) d.drivers = d.drivers ? Object.values(d.drivers) : [];
+    if (!d.laps) d.laps = {};
+    TEAMS.forEach(t => {
+        if (!Array.isArray(d.laps[t])) d.laps[t] = d.laps[t] ? Object.values(d.laps[t]) : [];
+    });
+    return d;
+}
+
 // --- HELPERS ---
 function generateId() { return Math.random().toString(36).substr(2, 9); }
 
@@ -168,11 +184,13 @@ function secondsToTime(sec, showSign = false) {
 // Leeres Feld ist erlaubt (nutzt dann den Standardwert).
 function isValidTimeStr(str) {
     if (!str) return true;
-    const parts = str.split(':').map(p => parseInt(p, 10));
-    if (parts.some(isNaN)) return false;
+    const rawParts = str.split(':');
+    // Jeder Teil muss komplett aus Ziffern bestehen (parseInt allein wuerde "9a" als 9 durchwinken)
+    if (!rawParts.every(p => /^\d+$/.test(p))) return false;
+    const parts = rawParts.map(p => parseInt(p, 10));
     if (parts.length === 1) return true;
-    if (parts.length === 2) return parts[1] >= 0 && parts[1] <= 59;
-    if (parts.length === 3) return parts[1] >= 0 && parts[1] <= 59 && parts[2] >= 0 && parts[2] <= 59;
+    if (parts.length === 2) return parts[1] <= 59;
+    if (parts.length === 3) return parts[1] <= 59 && parts[2] <= 59;
     return false;
 }
 
@@ -197,7 +215,7 @@ function formatTime(ms) {
 // --- FIREBASE WRITE HELPER (Transaction statt full overwrite -> kein Lost Update) ---
 function runTransaction(mutator) {
     return database.ref('raceData').transaction(current => {
-        if (!current) current = getDefaultData();
+        current = normalizeData(current || getDefaultData());
         mutator(current);
         return current;
     });
@@ -441,49 +459,69 @@ function renderMasterData() {
     });
 }
 
-function renderLaps() {
+// Berechnet den kompletten Zeitplan (Start/Ende jeder Runde, wer gerade faehrt, wer als
+// naechstes startet) OHNE DOM-Zugriff. Wird sowohl vom Rendering als auch vom 10s-Ticker
+// genutzt - so wandert die "aktuell auf der Strecke"-Markierung auch dann weiter, wenn
+// laengere Zeit niemand Daten aendert.
+function computeSchedule() {
     const now = Date.now();
-    window.nextDrivers = [];
-    window.currentRiders = [];
+    const schedule = {};
+    const nextDrivers = [];
+    const currentRiders = [];
+    const currentLapIds = [];
 
     TEAMS.forEach(team => {
-        const tbody = document.getElementById(`tbody-${team}`);
-        const teamDrivers = data.drivers.filter(d => d.team === team);
-
-        let currentStartTime = getRaceStart();
+        let t = getRaceStart();
         let foundNext = false;
-        let html = '';
-
-        data.laps[team].forEach((lap, index) => {
-            const driver = data.drivers.find(d => d.id === lap.driverId);
-            // Statische SOLL-Zeit aus der Fahrerverwaltung ist nur der Startwert fuer die allererste
+        schedule[team] = data.laps[team].map(lap => {
+            const driver = data.drivers.find(d => d.id === lap.driverId) || null;
+            // Statische Plan-Zeit aus der Fahrerverwaltung ist nur der Startwert fuer die allererste
             // Runde eines Fahrers. Fuer alle folgenden Runden wird lap.soll beim Eintragen der IST-Zeit
-            // der Vorrunde automatisch auf den dann aktuellen Durchschnitt gesetzt (siehe updateLapIst)
-            // und bleibt danach fest stehen.
+            // der Vorrunde automatisch auf den dann aktuellen Durchschnitt gesetzt (siehe updateLapIst).
             const defaultSollStr = driver ? driver.soll : '00:00';
             const sollStr = lap.soll || defaultSollStr;
             const sollSec = timeToSeconds(sollStr);
             const istSec = timeToSeconds(lap.ist);
             const durationSec = istSec > 0 ? istSec : sollSec;
 
-            const lapStart = currentStartTime;
-            const lapEnd = lapStart + durationSec * 1000;
-            // "Aktuell auf der Strecke" wird anhand der verstrichenen Zeit ermittelt (nicht anhand
-            // fehlender IST-Zeit) - sonst bliebe Runde 1 fuer immer "aktuell", solange niemand die
-            // IST-Zeit eintraegt, obwohl laengst die naechste Runde faellig waere.
-            const isCurrentLap = now >= lapStart && now < lapEnd;
-            if (isCurrentLap) {
-                window.currentRiders.push({ team, driverName: driver ? driver.name : 'Unbekannt' });
+            const start = t;
+            const end = start + durationSec * 1000;
+            // "Aktuell auf der Strecke" anhand der verstrichenen Zeit (nicht anhand fehlender
+            // IST-Zeit) - sonst bliebe Runde 1 fuer immer "aktuell", solange niemand eintraegt.
+            const isCurrent = now >= start && now < end;
+            if (isCurrent) {
+                currentRiders.push({ team, driverName: driver ? driver.name : 'Unbekannt' });
+                currentLapIds.push(lap.id);
             }
-
-            if (!foundNext && lapStart > now) {
+            if (!foundNext && start > now) {
                 foundNext = true;
-                window.nextDrivers.push({
-                    team: team,
-                    driverName: driver ? driver.name : 'Unbekannt',
-                    startTime: lapStart
-                });
+                nextDrivers.push({ team, driverName: driver ? driver.name : 'Unbekannt', startTime: start });
             }
+            t = end;
+            return { lap, driver, defaultSollStr, sollStr, sollSec, istSec, start, isCurrent };
+        });
+        schedule[team].endTime = t;
+    });
+
+    return { schedule, nextDrivers, currentRiders, currentKey: currentLapIds.join('|') };
+}
+
+function renderLaps() {
+    const sched = computeSchedule();
+    window.nextDrivers = sched.nextDrivers;
+    window.currentRiders = sched.currentRiders;
+    window.currentLapKey = sched.currentKey;
+
+    TEAMS.forEach(team => {
+        const tbody = document.getElementById(`tbody-${team}`);
+        const teamDrivers = data.drivers.filter(d => d.team === team);
+
+        let html = '';
+
+        sched.schedule[team].forEach((entry, index) => {
+            const { lap, driver, defaultSollStr, sollStr, sollSec, istSec, start, isCurrent } = entry;
+            const lapStart = start;
+            const isCurrentLap = isCurrent;
 
             // Check Cutoff
             const isCutoff = lapStart > getRaceCutoff();
@@ -516,14 +554,11 @@ function renderLaps() {
                     </td>
                 </tr>
             `;
-
-            // Advance time
-            currentStartTime = lapEnd;
         });
 
         // Cut-Off Preview for the NEXT (potential) lap
         const cutoffTime = getRaceCutoff();
-        const diffToCutoffMs = cutoffTime - currentStartTime;
+        const diffToCutoffMs = cutoffTime - sched.schedule[team].endTime;
         const diffToCutoffMin = Math.floor(diffToCutoffMs / 60000);
 
         if (diffToCutoffMin < 90) { // Warn if less than 90 mins left
@@ -562,6 +597,16 @@ function updateTicker() {
     const now = new Date().getTime();
     currentWarnings = [];
     const warnMin = data.config ? parseInt(data.config.warningMinutes, 10) || 15 : 15;
+
+    // Zeitplan frisch berechnen, damit Markierung/Warnungen auch ohne Datenaenderung weiterwandern.
+    // Die Tabelle selbst wird nur neu gerendert, wenn ein Rundenwechsel stattfand - sonst wuerde
+    // Admins alle 10s das gerade fokussierte Eingabefeld unter den Fingern weggerissen.
+    const sched = computeSchedule();
+    window.nextDrivers = sched.nextDrivers;
+    window.currentRiders = sched.currentRiders;
+    if (sched.currentKey !== window.currentLapKey) {
+        renderLaps();
+    }
 
     window.nextDrivers.forEach(nd => {
         const diffMs = nd.startTime - now;
@@ -668,14 +713,12 @@ function loadFromFirebase() {
     database.ref('raceData').on('value', (snapshot) => {
         const val = snapshot.val();
         if (val) {
-            data = val;
-            if (!data.laps) data.laps = { avia1: [], avia2: [], frauen: [] };
-            renderAll();
+            data = normalizeData(val);
         } else {
             // Firebase leer -> lokale Defaults + 34 Runden aufbauen (Upload erfolgt erst beim Admin-Login)
             data = buildFullDefaultData();
-            renderAll();
         }
+        renderAll();
     });
 }
 
