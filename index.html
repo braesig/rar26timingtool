@@ -307,6 +307,18 @@
                richtet sich stattdessen am tatsaechlichen Inhalt aus; .table-container faengt
                Ueberlauf per horizontalem Scroll ab. */
         }
+        /* Rundenplanungs-Tabellen (in .table-container): volle Kartenbreite nutzen, aber die
+           schmalen Spalten auf ihre tatsaechlich benoetigte Breite fixieren, damit nur die
+           Fahrer-Spalte den uebrigen Platz aufnimmt - statt dass der Browser die Extra-Breite
+           wahllos auf IST/Plan/etc. verteilt. */
+        .table-container table {
+            width: 100%;
+        }
+        .table-container th:nth-child(1), .table-container td:nth-child(1) { width: 60px; }
+        .table-container th:nth-child(3), .table-container td:nth-child(3) { width: 110px; }
+        .table-container th:nth-child(4), .table-container td:nth-child(4) { width: 100px; }
+        .table-container th:nth-child(5), .table-container td:nth-child(5) { width: 100px; }
+        .table-container th:nth-child(6), .table-container td:nth-child(6) { width: 100px; }
         th, td {
             padding: 16px 15px;
             text-align: left;
@@ -452,6 +464,13 @@
             .table-container { margin: 0 -10px; width: calc(100% + 20px); border-radius: 0; }
             table { font-size: 0.85rem; }
             th, td { padding: 4px 2px; }
+            /* Schmale Spalten enger fassen als am Desktop, sonst wird's auf dem Handy zu breit
+               fuer eine Zeile und die Tabelle muesste wieder horizontal scrollen. */
+            .table-container th:nth-child(1), .table-container td:nth-child(1) { width: 20px; }
+            .table-container th:nth-child(3), .table-container td:nth-child(3) { width: 52px; }
+            .table-container th:nth-child(4), .table-container td:nth-child(4) { width: 58px; }
+            .table-container th:nth-child(5), .table-container td:nth-child(5) { width: 58px; }
+            .table-container th:nth-child(6), .table-container td:nth-child(6) { width: 68px; }
             
             .form-group { flex-direction: column; align-items: stretch; gap: 10px; }
             .form-group input, .form-group button { width: 100% !important; margin-left: 0 !important; }
