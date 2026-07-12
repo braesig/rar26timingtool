@@ -320,6 +320,17 @@
         .table-container th:nth-child(4), .table-container td:nth-child(4) { width: 17%; }
         .table-container th:nth-child(5), .table-container td:nth-child(5) { width: 18%; }
         .table-container th:nth-child(6), .table-container td:nth-child(6) { width: 18%; }
+
+        /* Fahrerverwaltungs-Tabellen: gleiche Logik - volle Kartenbreite, Platz gleichmaessig
+           auf Name/Plan/oIST/Aktionen verteilt statt einer Spalte alles zu ueberlassen. */
+        .driver-grid table {
+            width: 100%;
+            table-layout: fixed;
+        }
+        .driver-grid th:nth-child(1), .driver-grid td:nth-child(1) { width: 38%; }
+        .driver-grid th:nth-child(2), .driver-grid td:nth-child(2) { width: 16%; }
+        .driver-grid th:nth-child(3), .driver-grid td:nth-child(3) { width: 28%; }
+        .driver-grid th:nth-child(4), .driver-grid td:nth-child(4) { width: 18%; }
         th, td {
             padding: 16px 15px;
             text-align: left;
@@ -479,7 +490,14 @@
             .table-container th:nth-child(4), .table-container td:nth-child(4) { width: 58px; }
             .table-container th:nth-child(5), .table-container td:nth-child(5) { width: 58px; }
             .table-container th:nth-child(6), .table-container td:nth-child(6) { width: 68px; }
-            
+
+            /* Fahrerverwaltung: Aktionen-Spalte braucht auf dem Handy mehr feste Breite fuer die
+               3 Buttons (▲▼🗑), Name-Spalte nimmt den Rest. */
+            .driver-grid th:nth-child(1), .driver-grid td:nth-child(1) { width: auto; }
+            .driver-grid th:nth-child(2), .driver-grid td:nth-child(2) { width: 50px; }
+            .driver-grid th:nth-child(3), .driver-grid td:nth-child(3) { width: 68px; }
+            .driver-grid th:nth-child(4), .driver-grid td:nth-child(4) { width: 95px; }
+
             .form-group { flex-direction: column; align-items: stretch; gap: 10px; }
             .form-group input, .form-group button { width: 100% !important; margin-left: 0 !important; }
             
